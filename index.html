@@ -142,17 +142,17 @@
   .os-bottom{margin-top:14px;font-size:13px;display:flex;flex-wrap:wrap;gap:24px;align-items:baseline;}
   .os-bottom2{margin-top:10px;font-size:13px;display:flex;flex-wrap:wrap;gap:24px;align-items:center;}
   @page{ size: A4; margin: 12mm; }
+  #printArea{display:none;}
   @media print{
-    body *{visibility:hidden;}
-    .paper,.paper *{visibility:visible;}
-    .paper{position:absolute;top:0;left:0;width:100%;min-height:0;padding:0;}
-    .modal-toolbar{display:none;}
-    .modal-overlay{position:static;background:none;padding:0;}
-    .modal-box{box-shadow:none;max-width:100%;}
+    body > *:not(#printArea){display:none !important;}
+    #printArea{display:block !important;position:static;}
+    #printArea .paper{width:100%;min-height:0;padding:0;margin:0;}
   }
 </style>
 </head>
 <body>
+
+<div id="printArea"></div>
 
 <header class="topbar">
   <h1>STK ใบเสนอราคา</h1>
@@ -1214,7 +1214,11 @@
     previewModal.classList.remove('hidden');
   }
   document.getElementById('closeModalBtn').onclick = () => previewModal.classList.add('hidden');
-  document.getElementById('printBtn').onclick = () => window.print();
+  document.getElementById('printBtn').onclick = () => {
+    const printArea = document.getElementById('printArea');
+    printArea.innerHTML = buildQuotationPaper(currentPreviewData);
+    window.print();
+  };
   previewModal.addEventListener('click', (e) => { if(e.target === previewModal) previewModal.classList.add('hidden'); });
 
   function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
