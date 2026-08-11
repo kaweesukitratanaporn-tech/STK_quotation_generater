@@ -2,7 +2,11 @@
 <html lang="th">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5">
 <title>STK ใบเสนอราคา</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700;800&family=Noto+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
     --steel:#12295c;
@@ -15,7 +19,7 @@
   }
   *{box-sizing:border-box;}
   body{
-    margin:0;font-family:'Leelawadee UI','Tahoma','Segoe UI',sans-serif;
+    margin:0;font-family:'Sarabun','Noto Sans Thai','Leelawadee UI','Tahoma','Segoe UI',sans-serif;
     background:var(--bg);color:var(--ink);
   }
   header.topbar{
@@ -108,7 +112,7 @@
   .view-toggle button.active{background:#2563eb;color:#fff;border-color:#2563eb;}
   .attach-link{font-size:12px;color:#2563eb;text-decoration:underline;}
   .po-preview{font-size:12px;color:#666;margin-top:4px;}
-  .paper{width:210mm;min-height:297mm;box-sizing:border-box;margin:0 auto;padding:6mm 16mm 13mm;font-size:22px;color:#111;background:#fff;font-family:'Angsana New','AngsanaUPC','TH Sarabun New',serif;line-height:1.25;}
+  .paper{width:210mm;min-height:297mm;box-sizing:border-box;margin:0 auto;padding:6mm 16mm 13mm;font-size:22px;color:#111;background:#fff;font-family:'Sarabun','Noto Sans Thai','TH Sarabun New','Leelawadee UI',sans-serif;line-height:1.25;}
   .paper .headline{display:flex;gap:14px;align-items:center;justify-content:flex-start;border-bottom:4px double #1e40af;padding:0 0 8px;margin-bottom:10px;text-align:left;}
   .logo-badge{width:78px;height:78px;border-radius:50%;flex-shrink:0;object-fit:contain;}
   .headline .cname{font-weight:800;font-size:26px;line-height:1.3;color:#1e40af;}
@@ -141,6 +145,14 @@
   table.os th{text-align:center;}
   .os-bottom{margin-top:14px;font-size:13px;display:flex;flex-wrap:wrap;gap:24px;align-items:baseline;}
   .os-bottom2{margin-top:10px;font-size:13px;display:flex;flex-wrap:wrap;gap:24px;align-items:center;}
+  @media screen and (max-width:600px){
+    main{padding:0 8px 60px;}
+    .card{padding:12px;}
+    .modal-overlay{padding:10px 4px;}
+    .company-pick{flex-wrap:wrap;}
+    header.topbar{padding:10px 12px;}
+    header.topbar h1{font-size:15px;}
+  }
   @page{ size: A4; margin: 12mm; }
   #printArea{display:none;}
   @media print{
@@ -230,11 +242,12 @@
 
     <datalist id="presetDatalist"></datalist>
 
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
     <table class="items" id="itemsTable">
       <thead>
         <tr>
           <th style="width:34px;">#</th>
-          <th>SPEC / รายการ</th>
+          <th style="min-width:140px;">SPEC / รายการ</th>
           <th style="width:100px;">จำนวน</th>
           <th style="width:130px;">ราคา/หน่วย</th>
           <th style="width:120px;">รวม</th>
@@ -243,6 +256,7 @@
       </thead>
       <tbody id="itemsBody"></tbody>
     </table>
+    </div>
     <div class="row-actions">
       <button class="btn secondary small" id="addItemBtn" type="button">+ เพิ่มแถวสินค้า</button>
     </div>
@@ -335,7 +349,9 @@
         <button class="btn small" id="printBtn" type="button">พิมพ์ / บันทึกเป็น PDF</button>
       </div>
     </div>
-    <div id="paperContent"></div>
+    <div id="paperScaleWrap" style="overflow:hidden;">
+      <div id="paperContent"></div>
+    </div>
   </div>
 </div>
 
@@ -1208,11 +1224,29 @@
   // ---------- modal ----------
   const previewModal = document.getElementById('previewModal');
   const paperContent = document.getElementById('paperContent');
+  function fitPaperToScreen(){
+    const wrap = document.getElementById('paperScaleWrap');
+    if(!wrap) return;
+    paperContent.style.transform = '';
+    paperContent.style.width = '';
+    wrap.style.height = '';
+    const naturalWidth = paperContent.scrollWidth;
+    const availWidth = wrap.clientWidth;
+    if(naturalWidth > availWidth && availWidth > 0){
+      const scale = availWidth / naturalWidth;
+      paperContent.style.transformOrigin = 'top left';
+      paperContent.style.width = naturalWidth + 'px';
+      paperContent.style.transform = 'scale(' + scale + ')';
+      wrap.style.height = (paperContent.scrollHeight * scale) + 'px';
+    }
+  }
   function openPreview(q){
     currentPreviewData = q;
     paperContent.innerHTML = buildQuotationPaper(q);
     previewModal.classList.remove('hidden');
+    requestAnimationFrame(fitPaperToScreen);
   }
+  window.addEventListener('resize', () => { if(!previewModal.classList.contains('hidden')) fitPaperToScreen(); });
   document.getElementById('closeModalBtn').onclick = () => previewModal.classList.add('hidden');
   document.getElementById('printBtn').onclick = () => {
     const printArea = document.getElementById('printArea');
