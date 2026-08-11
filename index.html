@@ -92,6 +92,11 @@
   .qcard .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
   .empty{color:#888;text-align:center;padding:40px 0;}
   .hidden{display:none !important;}
+  .name-suggest{position:fixed;z-index:200;background:#fff;border:1px solid #bbb;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);max-height:260px;overflow:auto;font-size:13px;}
+  .name-suggest-item{display:flex;justify-content:space-between;gap:10px;padding:7px 10px;cursor:pointer;}
+  .name-suggest-item:hover,.name-suggest-item.active{background:#eef2ff;}
+  .name-suggest-item .sn{flex:1;}
+  .name-suggest-item .sp{color:#555;white-space:nowrap;font-variant-numeric:tabular-nums;}
   .modal-overlay{
     position:fixed;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:flex-start;justify-content:center;
     overflow:auto;padding:30px 10px;z-index:50;
@@ -564,6 +569,83 @@
     }
   };
 
+  // ---------- product fuzzy search (same scoring as Google Sheet "Search" tab) ----------
+  function scoreProductMatch(term, nameLower, termWords){
+    if(nameLower === term) return 1000;
+    if(nameLower.indexOf(term) === 0) return 900;
+    if(nameLower.indexOf(term) !== -1) return 800;
+    let matchedWords = 0;
+    for(const w of termWords){ if(w && nameLower.indexOf(w) !== -1) matchedWords++; }
+    if(termWords.length > 0 && matchedWords === termWords.length) return 600 + matchedWords;
+    if(matchedWords > 0) return matchedWords * 50;
+    return 0;
+  }
+  function getProductMatches(rawTerm, limit){
+    limit = limit || 8;
+    const term = (rawTerm || '').trim().toLowerCase();
+    if(!term) return [];
+    const termWords = term.split(/\s+/).filter(Boolean);
+    const results = [];
+    for(const p of presets){
+      if(!p.name) continue;
+      const nameLower = p.name.toLowerCase();
+      const score = scoreProductMatch(term, nameLower, termWords);
+      if(score > 0) results.push({p, score, len: p.name.length});
+    }
+    results.sort((a,b) => b.score - a.score || a.len - b.len);
+    return results.slice(0, limit).map(r => r.p);
+  }
+
+  // ---------- product suggest dropdown ----------
+  let suggestBox = null;
+  const suggestState = { input:null, matches:[], activeIndex:-1, onSelect:null };
+  function ensureSuggestBox(){
+    if(suggestBox) return suggestBox;
+    suggestBox = document.createElement('div');
+    suggestBox.className = 'name-suggest hidden';
+    document.body.appendChild(suggestBox);
+    return suggestBox;
+  }
+  function positionSuggestBox(input){
+    const box = ensureSuggestBox();
+    const rect = input.getBoundingClientRect();
+    box.style.left = rect.left + 'px';
+    box.style.top = rect.bottom + 'px';
+    box.style.width = Math.max(rect.width, 260) + 'px';
+  }
+  function renderSuggestBox(){
+    const box = ensureSuggestBox();
+    box.innerHTML = '';
+    suggestState.matches.forEach((p, i) => {
+      const item = document.createElement('div');
+      item.className = 'name-suggest-item' + (i === suggestState.activeIndex ? ' active' : '');
+      item.innerHTML = '<span class="sn">'+escapeHtml(p.name)+'</span>' + (p.price ? '<span class="sp">'+fmt(p.price)+'</span>' : '');
+      item.onmousedown = (e) => {
+        e.preventDefault();
+        const onSelect = suggestState.onSelect;
+        closeSuggest();
+        if(onSelect) onSelect(p);
+      };
+      box.appendChild(item);
+    });
+    box.classList.toggle('hidden', suggestState.matches.length === 0);
+  }
+  function openSuggest(input, onSelectFn){
+    suggestState.input = input;
+    suggestState.matches = getProductMatches(input.value, 8);
+    suggestState.activeIndex = -1;
+    suggestState.onSelect = onSelectFn;
+    positionSuggestBox(input);
+    renderSuggestBox();
+  }
+  function closeSuggest(){
+    if(suggestBox) suggestBox.classList.add('hidden');
+    suggestState.input = null;
+    suggestState.matches = [];
+    suggestState.activeIndex = -1;
+    suggestState.onSelect = null;
+  }
+
   // ---------- items ----------
   const itemsBody = document.getElementById('itemsBody');
   function addItemRow(data){
@@ -578,21 +660,50 @@
       const amt = (Number(it.qty)||0) * (Number(it.price)||0);
       tr.innerHTML =
         '<td style="text-align:center;">'+(idx+1)+'</td>'+
-        '<td><input type="text" list="presetDatalist" class="name" value="'+escapeAttr(it.name)+'" placeholder="พิมพ์ชื่อ/สเปกสินค้า หรือเลือกจาก Auto-fill"></td>'+
+        '<td><input type="text" class="name" autocomplete="off" value="'+escapeAttr(it.name)+'" placeholder="พิมพ์ชื่อ/สเปกสินค้า (แยกคำได้) เช่น แผ่น 304 2B"></td>'+
         '<td><input type="number" class="qty" value="'+it.qty+'" min="0" step="0.01"></td>'+
         '<td><input type="number" class="price" value="'+it.price+'" min="0" step="0.01"></td>'+
         '<td class="item-amt">'+fmt(amt)+'</td>'+
         '<td style="text-align:center;"><button type="button" class="btn danger small rm">×</button></td>';
       itemsBody.appendChild(tr);
 
-      tr.querySelector('.name').oninput = (e) => {
+      const nameInput = tr.querySelector('.name');
+      const applySuggestion = (p) => {
+        it.name = p.name;
+        if(p.price) it.price = p.price;
+        renderItems();
+      };
+      nameInput.oninput = (e) => {
         it.name = e.target.value;
         const match = presets.find(p => p.name === e.target.value);
         if(match && (!it.price || it.price===0)){
           it.price = match.price || 0;
           renderItems();
+          return;
+        }
+        openSuggest(nameInput, applySuggestion);
+      };
+      nameInput.onfocus = () => { if(nameInput.value.trim()) openSuggest(nameInput, applySuggestion); };
+      nameInput.onkeydown = (e) => {
+        if(suggestState.input !== nameInput || !suggestState.matches.length) return;
+        if(e.key === 'ArrowDown'){
+          e.preventDefault();
+          suggestState.activeIndex = Math.min(suggestState.activeIndex+1, suggestState.matches.length-1);
+          renderSuggestBox();
+        } else if(e.key === 'ArrowUp'){
+          e.preventDefault();
+          suggestState.activeIndex = Math.max(suggestState.activeIndex-1, 0);
+          renderSuggestBox();
+        } else if(e.key === 'Enter'){
+          e.preventDefault();
+          const pick = suggestState.matches[suggestState.activeIndex >= 0 ? suggestState.activeIndex : 0];
+          applySuggestion(pick);
+          closeSuggest();
+        } else if(e.key === 'Escape'){
+          closeSuggest();
         }
       };
+      nameInput.onblur = () => { setTimeout(closeSuggest, 150); };
       tr.querySelector('.qty').oninput = (e) => { it.qty = e.target.value; renderTotals(); tr.querySelector('.item-amt').textContent = fmt((Number(it.qty)||0)*(Number(it.price)||0)); };
       tr.querySelector('.price').oninput = (e) => { it.price = e.target.value; renderTotals(); tr.querySelector('.item-amt').textContent = fmt((Number(it.qty)||0)*(Number(it.price)||0)); };
       tr.querySelector('.rm').onclick = () => { items.splice(idx,1); renderItems(); renderTotals(); };
