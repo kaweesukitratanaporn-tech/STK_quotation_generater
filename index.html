@@ -196,9 +196,9 @@
   <div class="card">
     <h2>5–6. รายการสินค้า / จำนวน / ราคาต่อชิ้น</h2>
 
-    <div class="preset-box">
-      <h3>รายการ Auto-fill — ซิงค์จาก Google Sheet (คอลัมน์: ชื่อสินค้า, ราคา, น้ำหนัก(กก./หน่วย) — น้ำหนักจะไม่แสดงในใบเสนอราคา ใช้สำหรับงานขนส่งภายหลัง)</h3>
-      <div class="row" style="margin-bottom:8px;">
+    <details class="preset-box" id="presetBox">
+      <summary style="cursor:pointer;font-size:13px;color:#555;font-weight:600;">รายการ Auto-fill — ซิงค์จาก Google Sheet <span id="presetSummaryCount" style="font-weight:400;color:#888;"></span></summary>
+      <div class="row" style="margin-bottom:8px;margin-top:10px;">
         <div class="field">
           <label>ลิงก์ Google Sheet (แชร์แบบ "ดูได้" เท่านั้นก็พอ)</label>
           <input type="text" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/....">
@@ -226,7 +226,7 @@
           </div>
         </div>
       </details>
-    </div>
+    </details>
 
     <datalist id="presetDatalist"></datalist>
 
@@ -459,10 +459,15 @@
   // ---------- presets ----------
   const presetListEl = document.getElementById('presetList');
   const presetDatalist = document.getElementById('presetDatalist');
+  const PRESET_CHIP_LIMIT = 40;
   function renderPresets(){
     presetListEl.innerHTML = '';
     presetDatalist.innerHTML = '';
-    presets.forEach((p, i) => {
+    const countEl = document.getElementById('presetSummaryCount');
+    if(countEl) countEl.textContent = presets.length ? '(' + presets.length + ' รายการ)' : '(ยังไม่มีข้อมูล)';
+    const showCount = Math.min(presets.length, PRESET_CHIP_LIMIT);
+    for(let i=0;i<showCount;i++){
+      const p = presets[i];
       const chip = document.createElement('div');
       chip.className = 'preset-chip';
       let label = escapeHtml(p.name);
@@ -474,7 +479,15 @@
       rm.onclick = () => { presets.splice(i,1); save(LS_PRESET, presets); renderPresets(); };
       chip.appendChild(rm);
       presetListEl.appendChild(chip);
-
+    }
+    if(presets.length > PRESET_CHIP_LIMIT){
+      const more = document.createElement('div');
+      more.className = 'po-preview';
+      more.style.width = '100%';
+      more.textContent = 'และอีก ' + (presets.length - PRESET_CHIP_LIMIT) + ' รายการ (พิมพ์ค้นหาในช่องสินค้าด้านล่างได้เลย ไม่ต้องเลื่อนดูที่นี่)';
+      presetListEl.appendChild(more);
+    }
+    presets.forEach(p => {
       const opt = document.createElement('option');
       opt.value = p.name;
       presetDatalist.appendChild(opt);
@@ -494,8 +507,10 @@
   };
 
   // ---------- google sheet sync ----------
+  // ผูกลิงก์ Google Sheet ไว้ในโค้ดโดยตรง — ไม่ต้องวางลิงก์เอง ระบบจะซิงค์ให้อัตโนมัติทุกครั้งที่เปิดหน้า
+  const DEFAULT_SHEET_URL = 'https://docs.google.com/spreadsheets/d/1yShOxCvEpPaLZByRACEbt5BH8hcRffp6X8tbb7bJmlc/edit?gid=1351742403';
   const LS_SHEET_URL = 'stk_sheet_url';
-  document.getElementById('sheetUrl').value = localStorage.getItem(LS_SHEET_URL) || '';
+  document.getElementById('sheetUrl').value = localStorage.getItem(LS_SHEET_URL) || DEFAULT_SHEET_URL;
   function parseSheetLink(url){
     const idMatch = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
     const gidMatch = url.match(/[?&#]gid=([0-9]+)/);
@@ -529,12 +544,13 @@
     }
     return -1;
   }
-  document.getElementById('syncSheetBtn').onclick = async () => {
+  async function syncFromUrl(url, opts){
+    opts = opts || {};
     const statusEl = document.getElementById('sheetSyncStatus');
-    const url = document.getElementById('sheetUrl').value.trim();
-    if(!url){ statusEl.textContent = 'ใส่ลิงก์ Google Sheet ก่อน'; return; }
+    url = (url || '').trim();
+    if(!url){ if(!opts.silent) statusEl.textContent = 'ใส่ลิงก์ Google Sheet ก่อน'; return; }
     const parsed = parseSheetLink(url);
-    if(!parsed){ statusEl.textContent = 'ลิงก์ไม่ถูกต้อง — วางลิงก์ที่แชร์จาก Google Sheet'; return; }
+    if(!parsed){ if(!opts.silent) statusEl.textContent = 'ลิงก์ไม่ถูกต้อง — วางลิงก์ที่แชร์จาก Google Sheet'; return; }
     localStorage.setItem(LS_SHEET_URL, url);
     statusEl.textContent = 'กำลังซิงค์...';
     const csvUrl = 'https://docs.google.com/spreadsheets/d/'+parsed.id+'/gviz/tq?tqx=out:csv&gid='+parsed.gid;
@@ -567,7 +583,8 @@
     } catch(e){
       statusEl.textContent = 'ซิงค์ไม่สำเร็จ: ' + e.message;
     }
-  };
+  }
+  document.getElementById('syncSheetBtn').onclick = () => syncFromUrl(document.getElementById('sheetUrl').value);
 
   // ---------- product fuzzy search (same scoring as Google Sheet "Search" tab) ----------
   function scoreProductMatch(term, nameLower, termWords){
@@ -1147,6 +1164,8 @@
   renderPresets();
   addItemRow();
   renderList();
+  // ซิงค์สินค้าจาก Google Sheet ที่ผูกไว้ในโค้ดโดยอัตโนมัติทุกครั้งที่เปิดหน้า
+  syncFromUrl(document.getElementById('sheetUrl').value, {silent:true});
 })();
 </script>
 </body>
