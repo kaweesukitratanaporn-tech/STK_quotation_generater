@@ -1248,9 +1248,22 @@
   }
   window.addEventListener('resize', () => { if(!previewModal.classList.contains('hidden')) fitPaperToScreen(); });
   document.getElementById('closeModalBtn').onclick = () => previewModal.classList.add('hidden');
-  document.getElementById('printBtn').onclick = () => {
+  document.getElementById('printBtn').onclick = async () => {
     const printArea = document.getElementById('printArea');
     printArea.innerHTML = buildQuotationPaper(currentPreviewData);
+    try{
+      if(document.fonts){
+        await Promise.all([
+          document.fonts.load("400 16px Sarabun"),
+          document.fonts.load("600 16px Sarabun"),
+          document.fonts.load("700 16px Sarabun"),
+          document.fonts.load("800 16px Sarabun"),
+          document.fonts.load("400 16px 'Noto Sans Thai'"),
+          document.fonts.load("600 16px 'Noto Sans Thai'")
+        ]);
+        await document.fonts.ready;
+      }
+    }catch(e){}
     window.print();
   };
   previewModal.addEventListener('click', (e) => { if(e.target === previewModal) previewModal.classList.add('hidden'); });
@@ -1259,6 +1272,16 @@
   function escapeAttr(s){ return escapeHtml(s); }
 
   // ---------- init ----------
+  if(document.fonts){
+    try{
+      document.fonts.load("400 16px Sarabun");
+      document.fonts.load("600 16px Sarabun");
+      document.fonts.load("700 16px Sarabun");
+      document.fonts.load("800 16px Sarabun");
+      document.fonts.load("400 16px 'Noto Sans Thai'");
+      document.fonts.load("600 16px 'Noto Sans Thai'");
+    }catch(e){}
+  }
   renderPresets();
   addItemRow();
   renderList();
