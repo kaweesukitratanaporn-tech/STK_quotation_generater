@@ -448,7 +448,7 @@
   const formView = document.getElementById('formView');
   const listView = document.getElementById('listView');
   tabFormBtn.onclick = () => showTab('form');
-  tabListBtn.onclick = () => { showTab('list'); renderList(); };
+  tabListBtn.onclick = () => { showTab('list'); renderList(); fetchSharedQuotations(); };
   function showTab(t){
     formView.classList.toggle('hidden', t!=='form');
     listView.classList.toggle('hidden', t!=='list');
@@ -585,6 +585,63 @@
     }
   }
   document.getElementById('syncSheetBtn').onclick = () => syncFromUrl(document.getElementById('sheetUrl').value);
+
+  // ---------- shared quotations (Google Sheet as central store) ----------
+  // ทุกคนที่เปิดแอปจะเห็นใบเสนอราคาชุดเดียวกัน — บันทึกแล้วส่งขึ้น Sheet อัตโนมัติ
+  const QUOTATIONS_SPREADSHEET_ID = '1yShOxCvEpPaLZByRACEbt5BH8hcRffp6X8tbb7bJmlc';
+  const QUOTATIONS_GID = '1432722888';
+  const QUOTATIONS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxkdEgOQs77KFPpEequqqXMw-WH-MbeAqEkAEPKrJe94Km3JzWuAfOOssw21APhw3Mt/exec';
+
+  async function pushQuotationToSheet(q, action){
+    try{
+      const payload = JSON.parse(JSON.stringify(q));
+      payload.action = action || 'save';
+      // ตัดไฟล์แนบขนาดใหญ่ออกก่อนส่ง (เก็บแค่ในเครื่อง)
+      if(payload.shipping && payload.shipping.poAttachment){
+        payload.shipping = Object.assign({}, payload.shipping, {
+          poAttachment: payload.shipping.poAttachment.name ? {name: payload.shipping.poAttachment.name} : null
+        });
+      }
+      if(action !== 'delete'){
+        payload.grandTotal = totalsFor(q).grand;
+      }
+      await fetch(QUOTATIONS_WEBAPP_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},
+        body: JSON.stringify(payload)
+      });
+    }catch(e){ /* best-effort — เก็บในเครื่องไว้แล้ว ไม่บล็อกผู้ใช้ */ }
+  }
+
+  async function fetchSharedQuotations(){
+    try{
+      const csvUrl = 'https://docs.google.com/spreadsheets/d/'+QUOTATIONS_SPREADSHEET_ID+'/gviz/tq?tqx=out:csv&gid='+QUOTATIONS_GID;
+      const res = await fetch(csvUrl, {cache:'no-store'});
+      if(!res.ok) return;
+      const text = await res.text();
+      const rows = parseCsv(text);
+      if(rows.length < 2) return;
+      const header = rows[0];
+      const jsonCol = header.findIndex(h => h.trim().toLowerCase() === 'json');
+      if(jsonCol === -1) return;
+      const shared = [];
+      for(let i=1;i<rows.length;i++){
+        const raw = rows[i][jsonCol];
+        if(!raw) continue;
+        try{
+          const obj = JSON.parse(raw);
+          delete obj.action;
+          shared.push(obj);
+        }catch(e){}
+      }
+      const sharedIds = new Set(shared.map(s => s.id));
+      const localOnly = quotations.filter(q => !sharedIds.has(q.id));
+      quotations = shared.concat(localOnly);
+      quotations.sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
+      save(LS_Q, quotations);
+      renderList();
+    }catch(e){ /* best-effort */ }
+  }
 
   // ---------- product fuzzy search (same scoring as Google Sheet "Search" tab) ----------
   function scoreProductMatch(term, nameLower, termWords){
@@ -813,6 +870,7 @@
       quotations.unshift(data);
     }
     save(LS_Q, quotations);
+    pushQuotationToSheet(data, 'save').then(fetchSharedQuotations);
     editingId = null;
     resetForm();
     showTab('list');
@@ -897,6 +955,7 @@
         if(confirm('ลบรายการนี้หรือไม่?')){
           quotations = quotations.filter(x => x.id !== q.id);
           save(LS_Q, quotations);
+          pushQuotationToSheet({id: q.id}, 'delete');
           renderList();
         }
       });
@@ -1014,6 +1073,7 @@
       status: document.getElementById('shipStatus').value
     };
     save(LS_Q, quotations);
+    pushQuotationToSheet(quotations[idx], 'save');
     shipEditingQ = quotations[idx];
     document.getElementById('shipExportBox').classList.remove('hidden');
     renderShipExport(shipEditingQ);
@@ -1166,6 +1226,8 @@
   renderList();
   // ซิงค์สินค้าจาก Google Sheet ที่ผูกไว้ในโค้ดโดยอัตโนมัติทุกครั้งที่เปิดหน้า
   syncFromUrl(document.getElementById('sheetUrl').value, {silent:true});
+  // ดึงใบเสนอราคาที่ทีมส่งเข้า Sheet มาแสดงร่วมด้วย
+  fetchSharedQuotations();
 })();
 </script>
 </body>
