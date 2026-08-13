@@ -104,7 +104,6 @@
   .stage-box.review h3{color:#b91c1c;}
   .stage-box.ready h3{color:#047857;}
   .stage-empty{color:#999;text-align:center;padding:14px 0;font-size:12px;}
-  .review-status-select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);}
   .empty{color:#888;text-align:center;padding:40px 0;}
   .hidden{display:none !important;}
   .name-suggest{position:fixed;z-index:200;background:#fff;border:1px solid #bbb;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);max-height:260px;overflow:auto;font-size:13px;}
@@ -339,13 +338,6 @@
 
 <!-- ============ LIST VIEW ============ -->
 <section id="listView" class="hidden">
-  <datalist id="reviewStatusList">
-    <option value="รออนุมัติ"></option>
-    <option value="รอผลิต"></option>
-    <option value="รอชำระเงิน"></option>
-    <option value="รอเอกสาร/PO"></option>
-    <option value="รอตรวจสอบสต๊อก"></option>
-  </datalist>
   <div class="card">
     <div class="top" style="margin-bottom:8px;">
       <h2 style="margin:0;border:none;padding:0;">ใบเสนอราคาที่บันทึกไว้</h2>
@@ -360,7 +352,7 @@
   </div>
 
   <div class="stage-box review">
-    <h3>② รอดำเนินการ (รออนุมัติ / รอผลิต ฯลฯ)</h3>
+    <h3>② รอดำเนินการ</h3>
     <div id="listGridReview" class="list-grid"></div>
     <div id="emptyReview" class="stage-empty">ไม่มีรายการ</div>
   </div>
@@ -423,13 +415,6 @@
         <div class="field" style="max-width:220px;">
           <label>3. วันที่จัดส่ง</label>
           <input type="date" id="shipDate">
-        </div>
-        <div class="field" style="max-width:220px;">
-          <label>4. สถานะออเดอร์</label>
-          <select id="shipStatus">
-            <option value="waiting">รอ</option>
-            <option value="ready">พร้อมส่ง</option>
-          </select>
         </div>
       </div>
       <div class="row-actions" style="justify-content:flex-end;">
@@ -915,7 +900,11 @@
   // ---------- order stage (kanban) ----------
   function isOrderComplete(data){
     const hasValidItem = (data.items||[]).some(it => it.name && String(it.name).trim() && Number(it.qty) > 0 && Number(it.price) > 0);
-    return !!(data.customerName && data.customerName.trim() && data.contact && data.contact.trim() && hasValidItem);
+    return !!(data.customerName && data.customerName.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim());
+  }
+  function shippingComplete(q){
+    const s = q.shipping || {};
+    return !!(s.address && s.address.trim() && s.shipDate);
   }
   function updateSaveButtonLabel(){
     const btn = document.getElementById('saveDraftBtn');
@@ -932,6 +921,7 @@
   }
   document.getElementById('customerName').oninput = updateSaveButtonLabel;
   document.getElementById('contact').oninput = updateSaveButtonLabel;
+  document.getElementById('deliveryPlace').oninput = updateSaveButtonLabel;
 
   document.getElementById('saveDraftBtn').onclick = () => {
     const data = gatherForm();
@@ -943,15 +933,15 @@
       data.id = editingId;
       data.createdAt = existing ? existing.createdAt : data.createdAt;
       data.orderStage = existing ? (existing.orderStage || 'draft') : 'draft';
-      data.reviewStatus = existing ? (existing.reviewStatus || 'รออนุมัติ') : 'รออนุมัติ';
       data.approved = existing ? !!existing.approved : false;
+      data.shipReady = existing ? !!existing.shipReady : false;
       data.shipping = existing ? existing.shipping : undefined;
       if(data.orderStage === 'draft' && complete){ data.orderStage = 'review'; }
       if(idx > -1){ quotations[idx] = data; } else { quotations.unshift(data); }
     } else {
       data.orderStage = complete ? 'review' : 'draft';
-      data.reviewStatus = 'รออนุมัติ';
       data.approved = false;
+      data.shipReady = false;
       quotations.unshift(data);
     }
     save(LS_Q, quotations);
@@ -1024,7 +1014,7 @@
     quotations.forEach(q => {
       if(!q.orderStage) q.orderStage = inferStage(q);
       if(q.approved === undefined) q.approved = (q.orderStage === 'ready');
-      if(!q.reviewStatus) q.reviewStatus = 'รออนุมัติ';
+      if(q.shipReady === undefined) q.shipReady = !!(q.shipping && q.shipping.address && q.shipping.address.trim() && q.shipping.shipDate);
     });
   }
   function saveAndPush(q){
@@ -1051,9 +1041,9 @@
   function buildCard(q){
     const comp = COMPANIES[q.company];
     const t = totalsFor(q);
-    const shipStatus = q.shipping && q.shipping.status;
-    const shipBadgeCls = shipStatus === 'ready' ? 'ready' : (shipStatus === 'waiting' ? 'waiting' : 'nofill');
-    const shipBadgeLabel = shipStatus === 'ready' ? 'พร้อมส่ง' : (shipStatus === 'waiting' ? 'รอจัดส่ง' : 'ยังไม่กรอกข้อมูลจัดส่ง');
+    const hasShipInfo = !!(q.shipping && q.shipping.address && q.shipping.address.trim());
+    const shipBadgeCls = q.orderStage === 'ready' ? 'ready' : (hasShipInfo ? 'waiting' : 'nofill');
+    const shipBadgeLabel = q.orderStage === 'ready' ? 'พร้อมส่ง' : (hasShipInfo ? 'รอจัดส่ง' : 'ยังไม่กรอกข้อมูลจัดส่ง');
     const div = document.createElement('div');
     div.className = 'qcard ' + comp.class;
     div.innerHTML =
@@ -1068,22 +1058,6 @@
     const extra = div.querySelector('.stage-extra');
     const actions = div.querySelector('.actions');
 
-    if(q.orderStage === 'review'){
-      const wrap = document.createElement('div');
-      wrap.style.cssText = 'margin:2px 0 8px;font-size:12px;color:#555;';
-      wrap.appendChild(document.createTextNode('สถานะย่อย: '));
-      const sel = document.createElement('input');
-      sel.setAttribute('list', 'reviewStatusList');
-      sel.className = 'review-status-select';
-      sel.value = q.reviewStatus || 'รออนุมัติ';
-      sel.onchange = () => {
-        const idx = quotations.findIndex(x => x.id === q.id);
-        if(idx > -1){ quotations[idx].reviewStatus = sel.value || 'รออนุมัติ'; saveAndPush(quotations[idx]); }
-      };
-      wrap.appendChild(sel);
-      extra.appendChild(wrap);
-    }
-
     actions.appendChild(mkBtn('ดูตัวอย่าง / พิมพ์', 'secondary', () => openPreview(q)));
     actions.appendChild(mkBtn('แก้ไข', 'secondary', () => loadForEdit(q)));
 
@@ -1092,26 +1066,22 @@
     }
 
     if(q.orderStage === 'review'){
-      if(!q.approved){
-        actions.appendChild(mkBtn('อนุมัติ', '', () => {
-          const idx = quotations.findIndex(x => x.id === q.id);
-          if(idx > -1){ quotations[idx].approved = true; saveAndPush(quotations[idx]); renderList(); }
-        }));
-      } else {
+      if(shippingComplete(q) && !q.shipReady){
         actions.appendChild(mkBtn('พร้อมส่ง', 'success', () => {
           const idx = quotations.findIndex(x => x.id === q.id);
-          if(idx > -1){ quotations[idx].orderStage = 'ready'; saveAndPush(quotations[idx]); renderList(); }
+          if(idx > -1){ quotations[idx].shipReady = true; saveAndPush(quotations[idx]); renderList(); }
         }));
-        actions.appendChild(mkBtn('ยกเลิกอนุมัติ', 'secondary', () => {
+      } else if(q.shipReady && !q.approved){
+        actions.appendChild(mkBtn('อนุมัติ', '', () => {
           const idx = quotations.findIndex(x => x.id === q.id);
-          if(idx > -1){ quotations[idx].approved = false; saveAndPush(quotations[idx]); renderList(); }
+          if(idx > -1){ quotations[idx].approved = true; quotations[idx].orderStage = 'ready'; saveAndPush(quotations[idx]); renderList(); }
         }));
       }
     }
     if(q.orderStage === 'ready'){
       actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
         const idx = quotations.findIndex(x => x.id === q.id);
-        if(idx > -1){ quotations[idx].orderStage = 'review'; saveAndPush(quotations[idx]); renderList(); }
+        if(idx > -1){ quotations[idx].orderStage = 'review'; quotations[idx].approved = false; saveAndPush(quotations[idx]); renderList(); }
       }));
     }
 
@@ -1184,9 +1154,8 @@
     document.getElementById('shipAddress').value = s.address || q.deliveryPlace || '';
     document.getElementById('shipMapLink').value = s.mapLink || '';
     document.getElementById('shipDate').value = s.shipDate || q.deliveryDate || '';
-    document.getElementById('shipStatus').value = s.status || 'waiting';
     const exportBox = document.getElementById('shipExportBox');
-    if(s.address || s.status){
+    if(s.address){
       exportBox.classList.remove('hidden');
       renderShipExport(q);
     } else {
@@ -1231,8 +1200,7 @@
       poAttachment: shipCurrentAttachment,
       address: document.getElementById('shipAddress').value.trim(),
       mapLink: document.getElementById('shipMapLink').value.trim(),
-      shipDate: document.getElementById('shipDate').value,
-      status: document.getElementById('shipStatus').value
+      shipDate: document.getElementById('shipDate').value
     };
     save(LS_Q, quotations);
     pushQuotationToSheet(quotations[idx], 'save');
@@ -1254,7 +1222,7 @@
       address: s.address || '',
       mapLink: s.mapLink || '',
       shipDate: s.shipDate || '',
-      status: s.status === 'ready' ? 'พร้อมส่ง' : 'รอ'
+      status: q.orderStage === 'ready' ? 'พร้อมส่ง' : 'รอ'
     };
   }
 
@@ -1299,7 +1267,7 @@
     return v;
   }
   document.getElementById('exportAllCsvBtn').onclick = () => {
-    const rows = quotations.filter(q => q.shipping && q.shipping.status).map(buildShippingRecord);
+    const rows = quotations.filter(q => q.shipping && q.shipping.address).map(buildShippingRecord);
     if(rows.length === 0){ alert('ยังไม่มีรายการที่กรอกข้อมูลจัดส่ง'); return; }
     const header = ['ชื่อลูกค้า','รายละเอียดสินค้า','จำนวนชิ้นรวม','น้ำหนักรวม(กก.)','ที่อยู่จัดส่ง','Google Map','วันที่จัดส่ง','สถานะ'];
     const lines = [header.map(csvEscape).join(',')];
