@@ -94,6 +94,17 @@
   .qcard .meta{font-size:12px;color:#666;margin:6px 0;}
   .qcard .grand{font-size:16px;font-weight:700;margin:6px 0;}
   .qcard .actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .btn.success{background:#059669;color:#fff;}
+  .stage-box{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:16px;border-top:4px solid #999;}
+  .stage-box.draft{border-top-color:#94a3b8;}
+  .stage-box.review{border-top-color:#ef4444;}
+  .stage-box.ready{border-top-color:#10b981;}
+  .stage-box h3{margin:0 0 10px;font-size:14px;}
+  .stage-box.draft h3{color:#475569;}
+  .stage-box.review h3{color:#b91c1c;}
+  .stage-box.ready h3{color:#047857;}
+  .stage-empty{color:#999;text-align:center;padding:14px 0;font-size:12px;}
+  .review-status-select{font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);}
   .empty{color:#888;text-align:center;padding:40px 0;}
   .hidden{display:none !important;}
   .name-suggest{position:fixed;z-index:200;background:#fff;border:1px solid #bbb;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);max-height:260px;overflow:auto;font-size:13px;}
@@ -310,13 +321,6 @@
       <label>ผู้เสนอราคา (ชื่อ-เบอร์โทร ท้ายเอกสาร)</label>
       <input type="text" id="signer" placeholder="เช่น นาย สุทธิพงศ์ ปานแสง 0991847997">
     </div>
-    <div class="field" style="margin-top:12px;max-width:220px;">
-      <label>11. สถานะใบเสนอราคา</label>
-      <select id="quoteStatus">
-        <option value="pending">รออนุมัติ</option>
-        <option value="ready">พร้อมส่ง</option>
-      </select>
-    </div>
   </div>
 
   <div class="card">
@@ -335,14 +339,39 @@
 
 <!-- ============ LIST VIEW ============ -->
 <section id="listView" class="hidden">
+  <datalist id="reviewStatusList">
+    <option value="รออนุมัติ"></option>
+    <option value="รอผลิต"></option>
+    <option value="รอชำระเงิน"></option>
+    <option value="รอเอกสาร/PO"></option>
+    <option value="รอตรวจสอบสต๊อก"></option>
+  </datalist>
   <div class="card">
     <div class="top" style="margin-bottom:8px;">
       <h2 style="margin:0;border:none;padding:0;">ใบเสนอราคาที่บันทึกไว้</h2>
       <button class="btn secondary small" id="exportAllCsvBtn" type="button">ส่งออกงานขนส่งทั้งหมด (CSV)</button>
     </div>
-    <div id="listGrid" class="list-grid"></div>
-    <div id="emptyMsg" class="empty hidden">ยังไม่มีรายการที่บันทึกไว้ — ไปที่แท็บ "สร้างใบเสนอราคา" เพื่อเริ่มต้น</div>
   </div>
+
+  <div class="stage-box draft">
+    <h3>① ยังไม่ครบข้อมูล / ลูกค้ายังไม่คอนเฟิร์ม</h3>
+    <div id="listGridDraft" class="list-grid"></div>
+    <div id="emptyDraft" class="stage-empty">ไม่มีรายการ</div>
+  </div>
+
+  <div class="stage-box review">
+    <h3>② รอดำเนินการ (รออนุมัติ / รอผลิต ฯลฯ)</h3>
+    <div id="listGridReview" class="list-grid"></div>
+    <div id="emptyReview" class="stage-empty">ไม่มีรายการ</div>
+  </div>
+
+  <div class="stage-box ready">
+    <h3>③ พร้อมส่ง</h3>
+    <div id="listGridReady" class="list-grid"></div>
+    <div id="emptyReady" class="stage-empty">ไม่มีรายการ</div>
+  </div>
+
+  <div id="emptyMsg" class="empty hidden">ยังไม่มีรายการที่บันทึกไว้ — ไปที่แท็บ "สร้างใบเสนอราคา" เพื่อเริ่มต้น</div>
 </section>
 
 </main>
@@ -612,7 +641,7 @@
   // ---------- shared quotations (Google Sheet as central store) ----------
   // ทุกคนที่เปิดแอปจะเห็นใบเสนอราคาชุดเดียวกัน — บันทึกแล้วส่งขึ้น Sheet อัตโนมัติ
   const QUOTATIONS_SPREADSHEET_ID = '1yShOxCvEpPaLZByRACEbt5BH8hcRffp6X8tbb7bJmlc';
-  const QUOTATIONS_GID = '1432722888';
+  const STAGE_GIDS = { draft: '27689259', review: '1129416167', ready: '1760579352' };
   const QUOTATIONS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxkdEgOQs77KFPpEequqqXMw-WH-MbeAqEkAEPKrJe94Km3JzWuAfOOssw21APhw3Mt/exec';
 
   async function pushQuotationToSheet(q, action){
@@ -636,27 +665,32 @@
     }catch(e){ /* best-effort — เก็บในเครื่องไว้แล้ว ไม่บล็อกผู้ใช้ */ }
   }
 
+  async function fetchQuotationsFromGid(gid){
+    const csvUrl = 'https://docs.google.com/spreadsheets/d/'+QUOTATIONS_SPREADSHEET_ID+'/gviz/tq?tqx=out:csv&gid='+gid;
+    const res = await fetch(csvUrl, {cache:'no-store'});
+    if(!res.ok) return [];
+    const text = await res.text();
+    const rows = parseCsv(text);
+    if(rows.length < 2) return [];
+    const header = rows[0];
+    const jsonCol = header.findIndex(h => h.trim().toLowerCase() === 'json');
+    if(jsonCol === -1) return [];
+    const out = [];
+    for(let i=1;i<rows.length;i++){
+      const raw = rows[i][jsonCol];
+      if(!raw) continue;
+      try{
+        const obj = JSON.parse(raw);
+        delete obj.action;
+        out.push(obj);
+      }catch(e){}
+    }
+    return out;
+  }
   async function fetchSharedQuotations(){
     try{
-      const csvUrl = 'https://docs.google.com/spreadsheets/d/'+QUOTATIONS_SPREADSHEET_ID+'/gviz/tq?tqx=out:csv&gid='+QUOTATIONS_GID;
-      const res = await fetch(csvUrl, {cache:'no-store'});
-      if(!res.ok) return;
-      const text = await res.text();
-      const rows = parseCsv(text);
-      if(rows.length < 2) return;
-      const header = rows[0];
-      const jsonCol = header.findIndex(h => h.trim().toLowerCase() === 'json');
-      if(jsonCol === -1) return;
-      const shared = [];
-      for(let i=1;i<rows.length;i++){
-        const raw = rows[i][jsonCol];
-        if(!raw) continue;
-        try{
-          const obj = JSON.parse(raw);
-          delete obj.action;
-          shared.push(obj);
-        }catch(e){}
-      }
+      const lists = await Promise.all(Object.values(STAGE_GIDS).map(gid => fetchQuotationsFromGid(gid).catch(()=>[])));
+      const shared = [].concat(...lists);
       const sharedIds = new Set(shared.map(s => s.id));
       const localOnly = quotations.filter(q => !sharedIds.has(q.id));
       quotations = shared.concat(localOnly);
@@ -847,6 +881,7 @@
     rows += row(t.vatLabel, fmt(t.vatAmt));
     rows += '<tr class="grand">'+row('Sub Total', fmt(t.grand), true)+'</tr>';
     tbl.innerHTML = rows;
+    if(typeof updateSaveButtonLabel === 'function') updateSaveButtonLabel();
     function row(lab, val, noWrap){
       const html = '<td class="label">'+lab+'</td><td class="val">'+val+'</td>';
       return noWrap ? html : '<tr>'+html+'</tr>';
@@ -873,24 +908,50 @@
       deliveryDate: document.getElementById('deliveryDate').value,
       note: document.getElementById('note').value.trim(),
       signer: document.getElementById('signer').value.trim(),
-      quoteStatus: document.getElementById('quoteStatus').value,
       createdAt: new Date().toISOString()
     };
   }
 
+  // ---------- order stage (kanban) ----------
+  function isOrderComplete(data){
+    const hasValidItem = (data.items||[]).some(it => it.name && String(it.name).trim() && Number(it.qty) > 0 && Number(it.price) > 0);
+    return !!(data.customerName && data.customerName.trim() && data.contact && data.contact.trim() && hasValidItem);
+  }
+  function updateSaveButtonLabel(){
+    const btn = document.getElementById('saveDraftBtn');
+    if(!btn) return;
+    const data = gatherForm();
+    const complete = isOrderComplete(data);
+    if(editingId){
+      const existing = quotations.find(x => x.id === editingId);
+      const stage = existing ? (existing.orderStage || 'draft') : 'draft';
+      btn.textContent = (stage === 'draft' && complete) ? 'เปิดออเดอร์' : 'อัปเดต';
+    } else {
+      btn.textContent = complete ? 'เปิดออเดอร์' : 'บันทึกเป็นการ์ด (ร่าง)';
+    }
+  }
+  document.getElementById('customerName').oninput = updateSaveButtonLabel;
+  document.getElementById('contact').oninput = updateSaveButtonLabel;
+
   document.getElementById('saveDraftBtn').onclick = () => {
     const data = gatherForm();
     if(!data.customerName){ alert('กรุณากรอกชื่อบริษัทลูกค้าก่อนบันทึก'); return; }
+    const complete = isOrderComplete(data);
     if(editingId){
       const idx = quotations.findIndex(x => x.id === editingId);
-      if(idx > -1){
-        data.id = editingId;
-        data.createdAt = quotations[idx].createdAt;
-        quotations[idx] = data;
-      } else {
-        quotations.unshift(data);
-      }
+      const existing = idx > -1 ? quotations[idx] : null;
+      data.id = editingId;
+      data.createdAt = existing ? existing.createdAt : data.createdAt;
+      data.orderStage = existing ? (existing.orderStage || 'draft') : 'draft';
+      data.reviewStatus = existing ? (existing.reviewStatus || 'รออนุมัติ') : 'รออนุมัติ';
+      data.approved = existing ? !!existing.approved : false;
+      data.shipping = existing ? existing.shipping : undefined;
+      if(data.orderStage === 'draft' && complete){ data.orderStage = 'review'; }
+      if(idx > -1){ quotations[idx] = data; } else { quotations.unshift(data); }
     } else {
+      data.orderStage = complete ? 'review' : 'draft';
+      data.reviewStatus = 'รออนุมัติ';
+      data.approved = false;
       quotations.unshift(data);
     }
     save(LS_Q, quotations);
@@ -917,9 +978,8 @@
     document.getElementById('deliveryDate').value='';
     document.getElementById('note').value='';
     document.getElementById('signer').value='';
-    document.getElementById('quoteStatus').value = 'pending';
     document.getElementById('issueDate').valueAsDate = new Date();
-    document.getElementById('saveDraftBtn').textContent = 'บันทึกเป็นการ์ด';
+    updateSaveButtonLabel();
   }
   function loadForEdit(q){
     editingId = q.id;
@@ -940,61 +1000,131 @@
     document.getElementById('deliveryDate').value = q.deliveryDate || '';
     document.getElementById('note').value = q.note || '';
     document.getElementById('signer').value = q.signer || '';
-    document.getElementById('quoteStatus').value = q.quoteStatus || 'pending';
-    document.getElementById('saveDraftBtn').textContent = 'อัปเดต';
     renderTotals();
+    updateSaveButtonLabel();
     showTab('form');
   }
 
-  // ---------- list view ----------
-  const listGrid = document.getElementById('listGrid');
+  // ---------- list view (kanban: draft / review / ready) ----------
+  const listGridDraft = document.getElementById('listGridDraft');
+  const listGridReview = document.getElementById('listGridReview');
+  const listGridReady = document.getElementById('listGridReady');
+  const emptyDraft = document.getElementById('emptyDraft');
+  const emptyReview = document.getElementById('emptyReview');
+  const emptyReady = document.getElementById('emptyReady');
   const emptyMsg = document.getElementById('emptyMsg');
-  function renderList(){
-    listGrid.innerHTML = '';
-    emptyMsg.classList.toggle('hidden', quotations.length>0);
+
+  function inferStage(q){
+    if(q.orderStage) return q.orderStage;
+    if(q.quoteStatus === 'ready') return 'ready';
+    if(q.quoteStatus) return 'review';
+    return isOrderComplete(q) ? 'review' : 'draft';
+  }
+  function normalizeStages(){
     quotations.forEach(q => {
-      const comp = COMPANIES[q.company];
-      const t = totalsFor(q);
-      const shipStatus = q.shipping && q.shipping.status;
-      const shipBadgeCls = shipStatus === 'ready' ? 'ready' : (shipStatus === 'waiting' ? 'waiting' : 'nofill');
-      const shipBadgeLabel = shipStatus === 'ready' ? 'พร้อมส่ง' : (shipStatus === 'waiting' ? 'รอจัดส่ง' : 'ยังไม่กรอกข้อมูลจัดส่ง');
-      const quoteStatus = q.quoteStatus || 'pending';
-      const quoteBadgeCls = quoteStatus === 'ready' ? 'approved' : 'draft';
-      const quoteBadgeLabel = quoteStatus === 'ready' ? 'พร้อมส่ง' : 'รออนุมัติ';
-      const div = document.createElement('div');
-      div.className = 'qcard ' + comp.class;
-      div.innerHTML =
-        '<div class="top"><h3>'+escapeHtml(q.customerName||'(ไม่ระบุชื่อลูกค้า)')+'</h3>'+
-        '<div style="display:flex;gap:4px;flex-wrap:wrap;">'+
-        '<span class="badge '+quoteBadgeCls+'">'+quoteBadgeLabel+'</span>'+
-        '<span class="badge '+shipBadgeCls+'">'+shipBadgeLabel+'</span>'+
-        '</div></div>'+
-        '<div class="meta">'+comp.name+'<br>วันที่: '+fmtDate(q.issueDate)+'</div>'+
-        '<div class="grand">รวม '+fmt(t.grand)+' บาท</div>'+
-        '<div class="actions"></div>';
-      const actions = div.querySelector('.actions');
-
-      const viewBtn = mkBtn('ดูตัวอย่าง / พิมพ์', 'secondary', () => openPreview(q));
-      actions.appendChild(viewBtn);
-
-      const editBtn = mkBtn('แก้ไข', 'secondary', () => loadForEdit(q));
-      actions.appendChild(editBtn);
-
-      const shipBtn = mkBtn('ข้อมูลจัดส่ง', '', () => openShippingModal(q));
-      actions.appendChild(shipBtn);
-
-      const delBtn = mkBtn('ลบ', 'danger', () => {
-        if(confirm('ลบรายการนี้หรือไม่?')){
-          quotations = quotations.filter(x => x.id !== q.id);
-          save(LS_Q, quotations);
-          pushQuotationToSheet({id: q.id}, 'delete');
-          renderList();
-        }
-      });
-      actions.appendChild(delBtn);
-
-      listGrid.appendChild(div);
+      if(!q.orderStage) q.orderStage = inferStage(q);
+      if(q.approved === undefined) q.approved = (q.orderStage === 'ready');
+      if(!q.reviewStatus) q.reviewStatus = 'รออนุมัติ';
     });
+  }
+  function saveAndPush(q){
+    save(LS_Q, quotations);
+    pushQuotationToSheet(q, 'save');
+  }
+
+  function renderList(){
+    normalizeStages();
+    listGridDraft.innerHTML = '';
+    listGridReview.innerHTML = '';
+    listGridReady.innerHTML = '';
+    emptyMsg.classList.toggle('hidden', quotations.length>0);
+    const buckets = {draft:[], review:[], ready:[]};
+    quotations.forEach(q => buckets[q.orderStage].push(q));
+    emptyDraft.classList.toggle('hidden', buckets.draft.length>0);
+    emptyReview.classList.toggle('hidden', buckets.review.length>0);
+    emptyReady.classList.toggle('hidden', buckets.ready.length>0);
+    buckets.draft.forEach(q => listGridDraft.appendChild(buildCard(q)));
+    buckets.review.forEach(q => listGridReview.appendChild(buildCard(q)));
+    buckets.ready.forEach(q => listGridReady.appendChild(buildCard(q)));
+  }
+
+  function buildCard(q){
+    const comp = COMPANIES[q.company];
+    const t = totalsFor(q);
+    const shipStatus = q.shipping && q.shipping.status;
+    const shipBadgeCls = shipStatus === 'ready' ? 'ready' : (shipStatus === 'waiting' ? 'waiting' : 'nofill');
+    const shipBadgeLabel = shipStatus === 'ready' ? 'พร้อมส่ง' : (shipStatus === 'waiting' ? 'รอจัดส่ง' : 'ยังไม่กรอกข้อมูลจัดส่ง');
+    const div = document.createElement('div');
+    div.className = 'qcard ' + comp.class;
+    div.innerHTML =
+      '<div class="top"><h3>'+escapeHtml(q.customerName||'(ไม่ระบุชื่อลูกค้า)')+'</h3>'+
+      '<div style="display:flex;gap:4px;flex-wrap:wrap;">'+
+      '<span class="badge '+shipBadgeCls+'">'+shipBadgeLabel+'</span>'+
+      '</div></div>'+
+      '<div class="meta">'+comp.name+'<br>วันที่: '+fmtDate(q.issueDate)+'</div>'+
+      '<div class="grand">รวม '+fmt(t.grand)+' บาท</div>'+
+      '<div class="stage-extra"></div>'+
+      '<div class="actions"></div>';
+    const extra = div.querySelector('.stage-extra');
+    const actions = div.querySelector('.actions');
+
+    if(q.orderStage === 'review'){
+      const wrap = document.createElement('div');
+      wrap.style.cssText = 'margin:2px 0 8px;font-size:12px;color:#555;';
+      wrap.appendChild(document.createTextNode('สถานะย่อย: '));
+      const sel = document.createElement('input');
+      sel.setAttribute('list', 'reviewStatusList');
+      sel.className = 'review-status-select';
+      sel.value = q.reviewStatus || 'รออนุมัติ';
+      sel.onchange = () => {
+        const idx = quotations.findIndex(x => x.id === q.id);
+        if(idx > -1){ quotations[idx].reviewStatus = sel.value || 'รออนุมัติ'; saveAndPush(quotations[idx]); }
+      };
+      wrap.appendChild(sel);
+      extra.appendChild(wrap);
+    }
+
+    actions.appendChild(mkBtn('ดูตัวอย่าง / พิมพ์', 'secondary', () => openPreview(q)));
+    actions.appendChild(mkBtn('แก้ไข', 'secondary', () => loadForEdit(q)));
+
+    if(q.orderStage === 'review' || q.orderStage === 'ready'){
+      actions.appendChild(mkBtn('ข้อมูลจัดส่ง', '', () => openShippingModal(q)));
+    }
+
+    if(q.orderStage === 'review'){
+      if(!q.approved){
+        actions.appendChild(mkBtn('อนุมัติ', '', () => {
+          const idx = quotations.findIndex(x => x.id === q.id);
+          if(idx > -1){ quotations[idx].approved = true; saveAndPush(quotations[idx]); renderList(); }
+        }));
+      } else {
+        actions.appendChild(mkBtn('พร้อมส่ง', 'success', () => {
+          const idx = quotations.findIndex(x => x.id === q.id);
+          if(idx > -1){ quotations[idx].orderStage = 'ready'; saveAndPush(quotations[idx]); renderList(); }
+        }));
+        actions.appendChild(mkBtn('ยกเลิกอนุมัติ', 'secondary', () => {
+          const idx = quotations.findIndex(x => x.id === q.id);
+          if(idx > -1){ quotations[idx].approved = false; saveAndPush(quotations[idx]); renderList(); }
+        }));
+      }
+    }
+    if(q.orderStage === 'ready'){
+      actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
+        const idx = quotations.findIndex(x => x.id === q.id);
+        if(idx > -1){ quotations[idx].orderStage = 'review'; saveAndPush(quotations[idx]); renderList(); }
+      }));
+    }
+
+    actions.appendChild(mkBtn('ลบ', 'danger', () => {
+      if(confirm('ลบรายการนี้หรือไม่?')){
+        quotations = quotations.filter(x => x.id !== q.id);
+        save(LS_Q, quotations);
+        pushQuotationToSheet({id: q.id}, 'delete');
+        renderList();
+      }
+    }));
+
+    return div;
   }
   function mkBtn(label, cls, fn){
     const b = document.createElement('button');
