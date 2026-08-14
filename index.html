@@ -636,23 +636,35 @@
     try{
       const payload = JSON.parse(JSON.stringify(q));
       payload.action = action || 'save';
-      // ตัดไฟล์แนบขนาดใหญ่ออกก่อนส่ง (เก็บแค่ในเครื่อง)
-      if(payload.poAttachment && payload.poAttachment.name){
-        payload.poAttachment = {name: payload.poAttachment.name};
-      }
-      if(payload.shipping && payload.shipping.poAttachment){
-        payload.shipping = Object.assign({}, payload.shipping, {
-          poAttachment: payload.shipping.poAttachment.name ? {name: payload.shipping.poAttachment.name} : null
-        });
+      // ไฟล์แนบ PO: ถ้าเคยอัปโหลดขึ้น Drive แล้ว (มี driveUrl) ส่งแค่ reference ไม่ต้องส่งไฟล์ซ้ำ
+      // ถ้ายังไม่เคยอัปโหลด (มีแค่ dataUrl) ส่งไปให้ backend อัปโหลดขึ้น Drive แล้วส่ง driveUrl กลับมา
+      if(payload.poAttachment && payload.poAttachment.driveUrl){
+        payload.poAttachment = {name: payload.poAttachment.name, driveUrl: payload.poAttachment.driveUrl};
       }
       if(action !== 'delete'){
         payload.grandTotal = totalsFor(q).grand;
       }
-      await fetch(QUOTATIONS_WEBAPP_URL, {
+      const res = await fetch(QUOTATIONS_WEBAPP_URL, {
         method: 'POST',
         headers: {'Content-Type': 'text/plain;charset=utf-8'},
         body: JSON.stringify(payload)
       });
+      if(action !== 'delete'){
+        try{
+          const result = await res.json();
+          if(result && result.poAttachment && result.poAttachment.driveUrl){
+            const idx = quotations.findIndex(x => x.id === q.id);
+            if(idx > -1){
+              quotations[idx].poAttachment = result.poAttachment;
+              save(LS_Q, quotations);
+            }
+            if(editingId === q.id){
+              poAttachmentCurrent = result.poAttachment;
+              renderPoAttachmentPreview();
+            }
+          }
+        }catch(e){ /* response parse ไม่สำเร็จ — ไม่เป็นไร ข้อมูลบันทึกในเครื่องแล้ว */ }
+      }
     }catch(e){ /* best-effort — เก็บในเครื่องไว้แล้ว ไม่บล็อกผู้ใช้ */ }
   }
 
