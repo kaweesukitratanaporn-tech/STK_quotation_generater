@@ -323,6 +323,15 @@
   </div>
 
   <div class="card">
+    <h2>11. ยืนยันคำสั่งซื้อ</h2>
+    <div class="field">
+      <label>แนบใบเสนอราคาที่ลูกค้าเซ็น หรือ PO (จำเป็นก่อนเปิดออเดอร์)</label>
+      <input type="file" id="poAttachmentInput" accept="image/*,application/pdf">
+      <div id="poAttachmentPreview" class="po-preview"></div>
+    </div>
+  </div>
+
+  <div class="card">
     <h2>สรุปยอด</h2>
     <div class="totals">
       <table id="totalsTable"></table>
@@ -396,14 +405,7 @@
     <div style="padding:18px 20px;">
       <div class="row">
         <div class="field">
-          <label>1. ใบเสนอราคาที่เซ็น / PO (แนบไฟล์)</label>
-          <input type="file" id="shipAttachmentInput" accept="image/*,application/pdf">
-          <div id="shipAttachmentPreview" class="po-preview"></div>
-        </div>
-      </div>
-      <div class="row">
-        <div class="field">
-          <label>2. ที่อยู่จัดส่ง</label>
+          <label>1. ที่อยู่จัดส่ง</label>
           <textarea id="shipAddress" style="min-height:60px;"></textarea>
         </div>
         <div class="field">
@@ -413,7 +415,7 @@
       </div>
       <div class="row">
         <div class="field" style="max-width:220px;">
-          <label>3. วันที่จัดส่ง</label>
+          <label>2. วันที่จัดส่ง</label>
           <input type="date" id="shipDate">
         </div>
       </div>
@@ -463,6 +465,7 @@
   let quotations = load(LS_Q, []);
   let editingId = null;          // set when editing an existing saved quotation
   let currentPreviewData = null; // quotation object shown in the modal
+  let poAttachmentCurrent = null; // ใบเสนอราคาที่เซ็น/PO ของออเดอร์ที่กำลังกรอก (ต้องมีก่อนเปิดออเดอร์)
 
   function load(key, fallback){
     try{ const v = JSON.parse(localStorage.getItem(key)); return v || fallback; }catch(e){ return fallback; }
@@ -634,6 +637,9 @@
       const payload = JSON.parse(JSON.stringify(q));
       payload.action = action || 'save';
       // ตัดไฟล์แนบขนาดใหญ่ออกก่อนส่ง (เก็บแค่ในเครื่อง)
+      if(payload.poAttachment && payload.poAttachment.name){
+        payload.poAttachment = {name: payload.poAttachment.name};
+      }
       if(payload.shipping && payload.shipping.poAttachment){
         payload.shipping = Object.assign({}, payload.shipping, {
           poAttachment: payload.shipping.poAttachment.name ? {name: payload.shipping.poAttachment.name} : null
@@ -893,14 +899,43 @@
       deliveryDate: document.getElementById('deliveryDate').value,
       note: document.getElementById('note').value.trim(),
       signer: document.getElementById('signer').value.trim(),
+      poAttachment: poAttachmentCurrent,
       createdAt: new Date().toISOString()
     };
+  }
+
+  document.getElementById('poAttachmentInput').onchange = (e) => {
+    const file = e.target.files[0];
+    if(!file) return;
+    if(file.size > 4*1024*1024){ alert('ไฟล์ใหญ่เกินไป (จำกัด 4MB)'); e.target.value=''; return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      poAttachmentCurrent = {name: file.name, dataUrl: reader.result};
+      renderPoAttachmentPreview();
+      updateSaveButtonLabel();
+    };
+    reader.readAsDataURL(file);
+  };
+  function renderPoAttachmentPreview(){
+    const box = document.getElementById('poAttachmentPreview');
+    if(poAttachmentCurrent){
+      box.innerHTML = 'แนบไฟล์: ' + escapeHtml(poAttachmentCurrent.name) + ' — <a href="#" id="clearPoAttachBtn">ลบไฟล์แนบ</a>';
+      document.getElementById('clearPoAttachBtn').onclick = (ev) => {
+        ev.preventDefault();
+        poAttachmentCurrent = null;
+        document.getElementById('poAttachmentInput').value = '';
+        renderPoAttachmentPreview();
+        updateSaveButtonLabel();
+      };
+    } else {
+      box.innerHTML = '';
+    }
   }
 
   // ---------- order stage (kanban) ----------
   function isOrderComplete(data){
     const hasValidItem = (data.items||[]).some(it => it.name && String(it.name).trim() && Number(it.qty) > 0 && Number(it.price) > 0);
-    return !!(data.customerName && data.customerName.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim());
+    return !!(data.customerName && data.customerName.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim() && data.poAttachment);
   }
   function shippingComplete(q){
     const s = q.shipping || {};
@@ -969,6 +1004,9 @@
     document.getElementById('note').value='';
     document.getElementById('signer').value='';
     document.getElementById('issueDate').valueAsDate = new Date();
+    poAttachmentCurrent = null;
+    document.getElementById('poAttachmentInput').value = '';
+    renderPoAttachmentPreview();
     updateSaveButtonLabel();
   }
   function loadForEdit(q){
@@ -990,6 +1028,9 @@
     document.getElementById('deliveryDate').value = q.deliveryDate || '';
     document.getElementById('note').value = q.note || '';
     document.getElementById('signer').value = q.signer || '';
+    poAttachmentCurrent = q.poAttachment || null;
+    document.getElementById('poAttachmentInput').value = '';
+    renderPoAttachmentPreview();
     renderTotals();
     updateSaveButtonLabel();
     showTab('form');
@@ -1121,7 +1162,6 @@
 
   // ---------- shipping ----------
   let shipEditingQ = null;
-  let shipCurrentAttachment = null;
   const shippingModal = document.getElementById('shippingModal');
 
   function itemSummary(q){
@@ -1149,8 +1189,6 @@
     shipEditingQ = q;
     document.getElementById('shipCustomerName').textContent = q.customerName || '(ไม่ระบุชื่อลูกค้า)';
     const s = q.shipping || {};
-    shipCurrentAttachment = s.poAttachment || null;
-    renderShipAttachmentPreview();
     document.getElementById('shipAddress').value = s.address || q.deliveryPlace || '';
     document.getElementById('shipMapLink').value = s.mapLink || '';
     document.getElementById('shipDate').value = s.shipDate || q.deliveryDate || '';
@@ -1166,38 +1204,11 @@
   document.getElementById('closeShipModalBtn').onclick = () => shippingModal.classList.add('hidden');
   shippingModal.addEventListener('click', (e) => { if(e.target === shippingModal) shippingModal.classList.add('hidden'); });
 
-  document.getElementById('shipAttachmentInput').onchange = (e) => {
-    const file = e.target.files[0];
-    if(!file) return;
-    if(file.size > 4*1024*1024){ alert('ไฟล์ใหญ่เกินไป (จำกัด 4MB)'); e.target.value=''; return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      shipCurrentAttachment = {name: file.name, dataUrl: reader.result};
-      renderShipAttachmentPreview();
-    };
-    reader.readAsDataURL(file);
-  };
-  function renderShipAttachmentPreview(){
-    const box = document.getElementById('shipAttachmentPreview');
-    if(shipCurrentAttachment){
-      box.innerHTML = 'แนบไฟล์: ' + escapeHtml(shipCurrentAttachment.name) + ' — <a href="#" id="clearShipAttachBtn">ลบไฟล์แนบ</a>';
-      document.getElementById('clearShipAttachBtn').onclick = (ev) => {
-        ev.preventDefault();
-        shipCurrentAttachment = null;
-        document.getElementById('shipAttachmentInput').value = '';
-        renderShipAttachmentPreview();
-      };
-    } else {
-      box.innerHTML = '';
-    }
-  }
-
   document.getElementById('saveShipBtn').onclick = () => {
     if(!shipEditingQ) return;
     const idx = quotations.findIndex(x => x.id === shipEditingQ.id);
     if(idx === -1) return;
     quotations[idx].shipping = {
-      poAttachment: shipCurrentAttachment,
       address: document.getElementById('shipAddress').value.trim(),
       mapLink: document.getElementById('shipMapLink').value.trim(),
       shipDate: document.getElementById('shipDate').value
