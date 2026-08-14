@@ -683,7 +683,9 @@
       const lists = await Promise.all(Object.values(STAGE_GIDS).map(gid => fetchQuotationsFromGid(gid).catch(()=>[])));
       const shared = [].concat(...lists);
       const sharedIds = new Set(shared.map(s => s.id));
-      const localOnly = quotations.filter(q => !sharedIds.has(q.id));
+      // เก็บเฉพาะรายการที่ยังไม่เคยซิงค์ขึ้นชีตเลย (ของใหม่ที่เพิ่งสร้างในเครื่อง)
+      // รายการที่เคยซิงค์แล้วแต่หายไปจากชีต = ถูกลบไปแล้ว ไม่ต้องดึงกลับมาโชว์อีก
+      const localOnly = quotations.filter(q => !sharedIds.has(q.id) && !q._synced);
       quotations = shared.concat(localOnly);
       quotations.sort((a,b) => new Date(b.createdAt||0) - new Date(a.createdAt||0));
       save(LS_Q, quotations);
@@ -979,6 +981,7 @@
       data.shipReady = false;
       quotations.unshift(data);
     }
+    data._synced = true;
     save(LS_Q, quotations);
     pushQuotationToSheet(data, 'save').then(fetchSharedQuotations);
     editingId = null;
@@ -1056,9 +1059,12 @@
       if(!q.orderStage) q.orderStage = inferStage(q);
       if(q.approved === undefined) q.approved = (q.orderStage === 'ready');
       if(q.shipReady === undefined) q.shipReady = !!(q.shipping && q.shipping.address && q.shipping.address.trim() && q.shipping.shipDate);
+      // ข้อมูลเก่าก่อนอัปเดตนี้ไม่มี _synced — ถือว่าเคยซิงค์แล้ว เพื่อให้รายการที่ถูกลบไปจากชีตแล้วไม่ถูกดึงกลับมาโชว์ค้าง
+      if(q._synced === undefined) q._synced = true;
     });
   }
   function saveAndPush(q){
+    q._synced = true;
     save(LS_Q, quotations);
     pushQuotationToSheet(q, 'save');
   }
@@ -1213,6 +1219,7 @@
       mapLink: document.getElementById('shipMapLink').value.trim(),
       shipDate: document.getElementById('shipDate').value
     };
+    quotations[idx]._synced = true;
     save(LS_Q, quotations);
     pushQuotationToSheet(quotations[idx], 'save');
     shipEditingQ = quotations[idx];
