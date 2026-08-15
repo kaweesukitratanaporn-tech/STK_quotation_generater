@@ -1138,7 +1138,12 @@
       }
     }
     if(q.orderStage === 'ready'){
-      actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
+            actions.appendChild(mkBtn(
+        q._sentToLogistics ? ('ส่งแล้ว ✅ ' + (q._sentOrderNo || '')) : '🚚 ส่งไปแอป Logistics',
+        q._sentToLogistics ? 'secondary' : 'success',
+        () => sendToLogistics(q)
+      ));
+actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
         const idx = quotations.findIndex(x => x.id === q.id);
         if(idx > -1){ quotations[idx].orderStage = 'review'; quotations[idx].approved = false; saveAndPush(quotations[idx]); renderList(); }
       }));
@@ -1255,6 +1260,43 @@
       status: q.orderStage === 'ready' ? 'พร้อมส่ง' : 'รอ'
     };
   }
+  
+  // ---------- send straight into the Logistics app ----------
+  // "พร้อมส่ง" quotations can be pushed directly into the Logistics &
+  // Order Tracking app (logistics-tracker-app.vercel.app) instead of
+  // copy/pasting the JSON by hand — it creates a real tracked order there.
+  const LOGISTICS_API_URL = 'https://logistics-tracker-app.vercel.app/api/orders/from-quotation';
+  const LOGISTICS_BRIDGE_TOKEN = '07f4fbb9d400a54b766361f367712985fa507a29c5589c5e';
+
+  async function sendToLogistics(q){
+    const idx = quotations.findIndex(x => x.id === q.id);
+    if(idx === -1) return;
+    const r = buildShippingRecord(quotations[idx]);
+    if(!r.address.trim() || !r.mapLink.trim()){
+      alert('กรุณากรอกที่อยู่จัดส่งและลิงก์ Google Map ในหน้า "ข้อมูลจัดส่ง" ให้ครบก่อนส่ง');
+      return;
+    }
+    try{
+      const res = await fetch(LOGISTICS_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-quotation-token': LOGISTICS_BRIDGE_TOKEN },
+        body: JSON.stringify(Object.assign({}, r, { quotationId: q.id }))
+      });
+      const json = await res.json();
+      if(!json.ok){
+        alert('ส่งไปแอป Logistics ไม่สำเร็จ: ' + (json.error || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'));
+        return;
+      }
+      quotations[idx]._sentToLogistics = true;
+      quotations[idx]._sentOrderNo = json.data.orderNo;
+      save(LS_Q, quotations);
+      renderList();
+      alert('ส่งไปแอป Logistics แล้ว — เลขที่ออเดอร์ ' + json.data.orderNo);
+    } catch(e){
+      alert('เชื่อมต่อแอป Logistics ไม่ได้: ' + e.message);
+    }
+  }
+
 
   function renderShipExport(q){
     const r = buildShippingRecord(q);
