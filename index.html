@@ -1138,12 +1138,8 @@
       }
     }
     if(q.orderStage === 'ready'){
-            actions.appendChild(mkBtn(
-        q._sentToLogistics ? ('ส่งแล้ว ✅ ' + (q._sentOrderNo || '')) : '🚚 ส่งไปแอป Logistics',
-        q._sentToLogistics ? 'secondary' : 'success',
-        () => sendToLogistics(q)
-      ));
-actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
+                actions.appendChild(mkBtn('🚚 ส่งไปแอป Logistics', 'success', () => sendToLogistics(q)));
+      actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
         const idx = quotations.findIndex(x => x.id === q.id);
         if(idx > -1){ quotations[idx].orderStage = 'review'; quotations[idx].approved = false; saveAndPush(quotations[idx]); renderList(); }
       }));
@@ -1287,11 +1283,11 @@ actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนิ�
         alert('ส่งไปแอป Logistics ไม่สำเร็จ: ' + (json.error || 'เกิดข้อผิดพลาดไม่ทราบสาเหตุ'));
         return;
       }
-      quotations[idx]._sentToLogistics = true;
-      quotations[idx]._sentOrderNo = json.data.orderNo;
+      quotations = quotations.filter(x => x.id !== q.id);
       save(LS_Q, quotations);
+      pushQuotationToSheet({id: q.id}, 'delete');
       renderList();
-      alert('ส่งไปแอป Logistics แล้ว — เลขที่ออเดอร์ ' + json.data.orderNo);
+      alert('ส่งไปแอป Logistics แล้ว — เลขที่ออเดอร์ ' + json.data.orderNo + ' (ลบออกจากรายการที่นี่แล้ว)');
     } catch(e){
       alert('เชื่อมต่อแอป Logistics ไม่ได้: ' + e.message);
     }
