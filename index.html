@@ -403,6 +403,12 @@
       </div>
     </div>
     <div style="padding:18px 20px;">
+        <div class="row">
+          <div class="field" style="max-width:260px;">
+            <label>0. เบอร์โทรลูกค้า</label>
+            <input type="text" id="shipPhone" placeholder="พิมพ์แล้วออกนอกช่องจะเติมข้อมูลลูกค้าเดิมให้อัตโนมัติ">
+          </div>
+        </div>
       <div class="row">
         <div class="field">
           <label>1. ที่อยู่จัดส่ง</label>
@@ -1208,6 +1214,7 @@
     shipEditingQ = q;
     document.getElementById('shipCustomerName').textContent = q.customerName || '(ไม่ระบุชื่อลูกค้า)';
     const s = q.shipping || {};
+    document.getElementById('shipPhone').value = s.phone || '';
     document.getElementById('shipAddress').value = s.address || q.deliveryPlace || '';
     document.getElementById('shipMapLink').value = s.mapLink || '';
     document.getElementById('shipDate').value = s.shipDate || q.deliveryDate || '';
@@ -1228,6 +1235,7 @@
     const idx = quotations.findIndex(x => x.id === shipEditingQ.id);
     if(idx === -1) return;
     quotations[idx].shipping = {
+      phone: document.getElementById('shipPhone').value.trim(),
       address: document.getElementById('shipAddress').value.trim(),
       mapLink: document.getElementById('shipMapLink').value.trim(),
       shipDate: document.getElementById('shipDate').value
@@ -1246,6 +1254,7 @@
     const summary = itemSummary(q);
     return {
       customerName: q.customerName || '',
+      phone: s.phone || '',
       items: summary.text,
       totalPieces: summary.totalPieces,
       totalWeightKg: Number(summary.totalWeight.toFixed(2)),
@@ -1261,8 +1270,38 @@
   // "พร้อมส่ง" quotations can be pushed directly into the Logistics &
   // Order Tracking app (logistics-tracker-app.vercel.app) instead of
   // copy/pasting the JSON by hand — it creates a real tracked order there.
-  const LOGISTICS_API_URL = 'https://logistics-tracker-app.vercel.app/api/orders/from-quotation';
+  const LOGISTICS_ORIGIN = 'https://logistics-tracker-app.vercel.app';
+  const LOGISTICS_API_URL = LOGISTICS_ORIGIN + '/api/orders/from-quotation';
   const LOGISTICS_BRIDGE_TOKEN = '07f4fbb9d400a54b766361f367712985fa507a29c5589c5e';
+
+  // เบอร์โทรลูกค้า -> เติมที่อยู่/แผนที่/ชื่อลูกค้าอัตโนมัติ ถ้าเคยมีอยู่ใน
+  // "ข้อมูลลูกค้า" (Google Sheet เดียวกับที่แอป Logistics ใช้) — ใช้ endpoint
+  // เดียวกับที่แอป Logistics เองก็เรียกตอนสร้างออเดอร์ตรง (อ่านอย่างเดียว
+  // ไม่ต้องใช้ token)
+  async function lookupCustomerByPhoneForShipping(){
+    const phone = document.getElementById('shipPhone').value.trim();
+    if(!phone) return;
+    try{
+      const res = await fetch(LOGISTICS_ORIGIN + '/api/customers/lookup?phone=' + encodeURIComponent(phone));
+      const json = await res.json();
+      if(!json.ok || !json.data) return;
+      const addrEl = document.getElementById('shipAddress');
+      const mapEl = document.getElementById('shipMapLink');
+      if(!addrEl.value.trim()) addrEl.value = json.data.address || '';
+      if(!mapEl.value.trim() && json.data.mapLink) mapEl.value = json.data.mapLink;
+      if(shipEditingQ && json.data.name && !shipEditingQ.customerName){
+        const idx = quotations.findIndex(x => x.id === shipEditingQ.id);
+        if(idx > -1){
+          quotations[idx].customerName = json.data.name;
+          shipEditingQ = quotations[idx];
+          document.getElementById('shipCustomerName').textContent = json.data.name;
+        }
+      }
+    } catch(e){
+      // best-effort only — silently ignore lookup failures
+    }
+  }
+  document.getElementById('shipPhone').addEventListener('blur', lookupCustomerByPhoneForShipping);
 
   async function sendToLogistics(q){
     const idx = quotations.findIndex(x => x.id === q.id);
@@ -1276,7 +1315,7 @@
       const res = await fetch(LOGISTICS_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-quotation-token': LOGISTICS_BRIDGE_TOKEN },
-        body: JSON.stringify(Object.assign({}, r, { quotationId: q.id }))
+        body: JSON.stringify(Object.assign({}, r, { quotationId: q.id, customerPhone: r.phone }))
       });
       const json = await res.json();
       if(!json.ok){
