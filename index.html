@@ -199,18 +199,33 @@
   </div>
 
   <div class="card">
-    <h2>2–4. ข้อมูลลูกค้า</h2>
+    <h2>2–5. ข้อมูลลูกค้า</h2>
+
+    <details class="preset-box" id="customerBox">
+      <summary style="cursor:pointer;font-size:13px;color:#555;font-weight:600;">รายชื่อลูกค้า — ซิงค์จาก Google Sheet <span id="customerSummaryCount" style="font-weight:400;color:#888;"></span></summary>
+      <div class="po-preview" id="customerSyncStatus" style="margin-top:8px;"></div>
+      <div class="preset-list" id="customerChipList"></div>
+    </details>
+    <datalist id="customerPhoneDatalist"></datalist>
+    <datalist id="customerNameDatalist"></datalist>
+
     <div class="row">
-      <div class="field">
-        <label>2. ชื่อบริษัทลูกค้า (TO)</label>
-        <input type="text" id="customerName" placeholder="เช่น บริษัท A จำกัด">
+      <div class="field" style="max-width:260px;">
+        <label>2. เบอร์โทรลูกค้า *</label>
+        <input type="text" id="customerPhone" list="customerPhoneDatalist" placeholder="เช่น 0812345678 — เลือกจากรายชื่อด้านบน หรือพิมพ์เบอร์ใหม่" required>
+        <span id="customerPhoneHint" style="font-size:11px;color:#2a7a4b;"></span>
       </div>
       <div class="field">
-        <label>3. ผู้ติดต่อ (ATTN)</label>
+        <label>3. ชื่อบริษัทลูกค้า (TO)</label>
+        <input type="text" id="customerName" list="customerNameDatalist" placeholder="เช่น บริษัท A จำกัด" required>
+        <span id="customerNameHint" style="font-size:11px;color:#b36b00;"></span>
+      </div>
+      <div class="field">
+        <label>4. ผู้ติดต่อ (ATTN)</label>
         <input type="text" id="contact" placeholder="เช่น ฝ่ายจัดซื้อ">
       </div>
       <div class="field">
-        <label>4. วันที่ออกใบเสนอราคา</label>
+        <label>5. วันที่ออกใบเสนอราคา</label>
         <input type="date" id="issueDate">
       </div>
     </div>
@@ -908,6 +923,7 @@
       id: uid(),
       company: document.querySelector('input[name=company]:checked').value,
       customerName: document.getElementById('customerName').value.trim(),
+      customerPhone: document.getElementById('customerPhone').value.trim(),
       contact: document.getElementById('contact').value.trim(),
       issueDate: document.getElementById('issueDate').value,
       items: items.map(it => ({name: it.name, qty: Number(it.qty)||0, price: Number(it.price)||0})),
@@ -955,7 +971,7 @@
   // ---------- order stage (kanban) ----------
   function isOrderComplete(data){
     const hasValidItem = (data.items||[]).some(it => it.name && String(it.name).trim() && Number(it.qty) > 0 && Number(it.price) > 0);
-    return !!(data.customerName && data.customerName.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim() && data.poAttachment);
+    return !!(data.customerName && data.customerName.trim() && data.customerPhone && data.customerPhone.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim() && data.poAttachment);
   }
   function shippingComplete(q){
     const s = q.shipping || {};
@@ -974,6 +990,7 @@
       btn.textContent = complete ? 'เปิดออเดอร์' : 'บันทึกเป็นการ์ด (ร่าง)';
     }
   }
+  document.getElementById('customerPhone').oninput = updateSaveButtonLabel;
   document.getElementById('customerName').oninput = updateSaveButtonLabel;
   document.getElementById('contact').oninput = updateSaveButtonLabel;
   document.getElementById('deliveryPlace').oninput = updateSaveButtonLabel;
@@ -981,6 +998,7 @@
   document.getElementById('saveDraftBtn').onclick = () => {
     const data = gatherForm();
     if(!data.customerName){ alert('กรุณากรอกชื่อบริษัทลูกค้าก่อนบันทึก'); return; }
+    if(!data.customerPhone){ alert('กรุณากรอกเบอร์โทรลูกค้าก่อนบันทึก'); return; }
     const complete = isOrderComplete(data);
     if(editingId){
       const idx = quotations.findIndex(x => x.id === editingId);
@@ -1019,6 +1037,7 @@
     items = [];
     renderItems();
     document.getElementById('customerName').value='';
+    document.getElementById('customerPhone').value='';
     document.getElementById('contact').value='';
     document.getElementById('deliveryPlace').value='';
     document.getElementById('deliveryDate').value='';
@@ -1034,6 +1053,7 @@
     editingId = q.id;
     document.querySelector('input[name=company][value="'+q.company+'"]').checked = true;
     document.getElementById('customerName').value = q.customerName || '';
+    document.getElementById('customerPhone').value = q.customerPhone || '';
     document.getElementById('contact').value = q.contact || '';
     document.getElementById('issueDate').value = q.issueDate || '';
     items = (q.items || []).map(it => ({name: it.name, qty: it.qty, price: it.price}));
@@ -1214,7 +1234,7 @@
     shipEditingQ = q;
     document.getElementById('shipCustomerName').textContent = q.customerName || '(ไม่ระบุชื่อลูกค้า)';
     const s = q.shipping || {};
-    document.getElementById('shipPhone').value = s.phone || '';
+    document.getElementById('shipPhone').value = q.customerPhone || s.phone || '';
     document.getElementById('shipAddress').value = s.address || q.deliveryPlace || '';
     document.getElementById('shipMapLink').value = s.mapLink || '';
     document.getElementById('shipDate').value = s.shipDate || q.deliveryDate || '';
@@ -1226,6 +1246,9 @@
       exportBox.classList.add('hidden');
     }
     shippingModal.classList.remove('hidden');
+    // เบอร์มักถูกกรอกมาแล้วตั้งแต่หน้าแรก — ลองเติมที่อยู่/แผนที่ให้ทันทีที่
+    // เปิดหน้าต่างนี้ ไม่ต้องรอให้ผู้ใช้กด/ออกจากช่องเบอร์เอง
+    if(document.getElementById('shipPhone').value.trim()) lookupCustomerByPhoneForShipping();
   }
   document.getElementById('closeShipModalBtn').onclick = () => shippingModal.classList.add('hidden');
   shippingModal.addEventListener('click', (e) => { if(e.target === shippingModal) shippingModal.classList.add('hidden'); });
@@ -1254,7 +1277,7 @@
     const summary = itemSummary(q);
     return {
       customerName: q.customerName || '',
-      phone: s.phone || '',
+      phone: q.customerPhone || s.phone || '',
       items: summary.text,
       totalPieces: summary.totalPieces,
       totalWeightKg: Number(summary.totalWeight.toFixed(2)),
@@ -1301,7 +1324,105 @@
       // best-effort only — silently ignore lookup failures
     }
   }
-  document.getElementById('shipPhone').addEventListener('blur', lookupCustomerByPhoneForShipping);
+    document.getElementById('shipPhone').addEventListener('blur', lookupCustomerByPhoneForShipping);
+
+  // ---------- customer list (ดรอปดาวน์ผูก Google Sheet เหมือนรายการสินค้า) ----------
+  // โหลดรายชื่อลูกค้าทั้งหมดจาก "ข้อมูลลูกค้า" (Sheet เดียวกับที่แอป
+  // Logistics ใช้) เก็บไว้ในตัวแปรนี้ครั้งเดียวตอนเปิดหน้า แล้วให้พิมพ์
+  // ค้นหา/เลือกได้ทั้งจากช่องเบอร์โทรและช่องชื่อบริษัท — เหมือนรายการ
+  // Auto-fill ของสินค้าด้านล่าง
+  let customers = [];
+
+  function normPhone(p){ return (p||'').replace(/\D/g, ''); }
+  function normName(n){ return (n||'').trim().replace(/\s+/g, ' ').toLowerCase(); }
+
+  function renderCustomerList(){
+    const countEl = document.getElementById('customerSummaryCount');
+    if(countEl) countEl.textContent = customers.length ? '(' + customers.length + ' รายการ)' : '(ยังไม่มีข้อมูล)';
+
+    const phoneDL = document.getElementById('customerPhoneDatalist');
+    const nameDL = document.getElementById('customerNameDatalist');
+    phoneDL.innerHTML = '';
+    nameDL.innerHTML = '';
+    customers.forEach(c => {
+      if(c.phone){ const o = document.createElement('option'); o.value = c.phone; phoneDL.appendChild(o); }
+      if(c.name){ const o = document.createElement('option'); o.value = c.name; nameDL.appendChild(o); }
+    });
+
+    const listEl = document.getElementById('customerChipList');
+    listEl.innerHTML = '';
+    const CHIP_LIMIT = 30;
+    customers.slice(0, CHIP_LIMIT).forEach(c => {
+      const chip = document.createElement('div');
+      chip.className = 'preset-chip';
+      chip.style.cursor = 'pointer';
+      chip.innerHTML = '<span>' + escapeHtml((c.name || '(ไม่ระบุชื่อ)') + (c.phone ? ' · ' + c.phone : '')) + '</span>';
+      chip.title = 'คลิกเพื่อเติมชื่อ+เบอร์โทร';
+      chip.onclick = () => applyCustomer(c);
+      listEl.appendChild(chip);
+    });
+    if(customers.length > CHIP_LIMIT){
+      const more = document.createElement('div');
+      more.style.cssText = 'font-size:12px;color:#888;margin-top:6px;';
+      more.textContent = 'และอีก ' + (customers.length - CHIP_LIMIT) + ' รายการ (พิมพ์ค้นหาในช่องเบอร์โทร/ชื่อลูกค้าด้านล่างได้เลย)';
+      listEl.appendChild(more);
+    }
+  }
+
+  function applyCustomer(c){
+    document.getElementById('customerPhone').value = c.phone || '';
+    document.getElementById('customerName').value = c.name || '';
+    document.getElementById('customerPhoneHint').textContent = '';
+    document.getElementById('customerNameHint').textContent = '';
+    updateSaveButtonLabel();
+  }
+
+  async function loadCustomers(){
+    const statusEl = document.getElementById('customerSyncStatus');
+    try{
+      const res = await fetch(LOGISTICS_ORIGIN + '/api/customers/list');
+      const json = await res.json();
+      if(!json.ok || !Array.isArray(json.data)) return;
+      customers = json.data;
+      renderCustomerList();
+      if(statusEl) statusEl.textContent = 'ซิงค์สำเร็จ ' + customers.length + ' รายการ (อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH') + ')';
+    } catch(e){
+      if(statusEl) statusEl.textContent = 'ซิงค์ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่';
+    }
+  }
+
+  // พิมพ์/เลือกเบอร์โทรตรงกับที่เคยมี -> เติมชื่อให้อัตโนมัติ
+  document.getElementById('customerPhone').addEventListener('input', () => {
+    const key = normPhone(document.getElementById('customerPhone').value);
+    const hint = document.getElementById('customerPhoneHint');
+    if(!key){ hint.textContent = ''; return; }
+    const match = customers.find(c => normPhone(c.phone) === key);
+    if(match){
+      document.getElementById('customerName').value = match.name || '';
+      hint.textContent = 'พบลูกค้าเดิม — เติมชื่อให้แล้ว';
+    } else {
+      hint.textContent = '';
+    }
+  });
+
+  // พิมพ์ชื่อตรงกับที่เคยมีพอดีหนึ่งราย -> เติมเบอร์ให้อัตโนมัติ (ถ้าชื่อซ้ำ
+  // กันหลายรายจะไม่เดาให้ เพื่อกันเติมเบอร์ผิดคน)
+  document.getElementById('customerName').addEventListener('input', () => {
+    const key = normName(document.getElementById('customerName').value);
+    const hint = document.getElementById('customerNameHint');
+    if(!key){ hint.textContent = ''; return; }
+    const matches = customers.filter(c => normName(c.name) === key);
+    if(matches.length === 1){
+      if(!document.getElementById('customerPhone').value.trim()) document.getElementById('customerPhone').value = matches[0].phone || '';
+      hint.textContent = 'พบลูกค้าเดิม — เติมเบอร์ให้แล้ว';
+    } else if(matches.length > 1){
+      hint.textContent = 'พบชื่อนี้ซ้ำกัน ' + matches.length + ' ราย — เลือกจากรายชื่อด้านบนแทนเพื่อความชัวร์';
+    } else {
+      hint.textContent = '';
+    }
+  });
+
+  loadCustomers();
 
   async function sendToLogistics(q){
     const idx = quotations.findIndex(x => x.id === q.id);
