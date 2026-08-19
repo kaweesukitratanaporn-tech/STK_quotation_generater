@@ -275,7 +275,7 @@
           <th style="width:34px;">#</th>
           <th style="min-width:140px;">SPEC / รายการ</th>
           <th style="width:100px;">จำนวน</th>
-          <th style="width:130px;">ราคา/หน่วย</th>
+          <th style="width:150px;">ราคา/หน่วย</th>
           <th style="width:120px;">รวม</th>
           <th style="width:40px;"></th>
         </tr>
@@ -806,7 +806,7 @@
   // ---------- items ----------
   const itemsBody = document.getElementById('itemsBody');
   function addItemRow(data){
-    data = data || {name:'', qty:1, price:0};
+    data = data || {name:'', qty:1, price:0, unit:'piece'};
     items.push(data);
     renderItems();
   }
@@ -818,8 +818,8 @@
       tr.innerHTML =
         '<td style="text-align:center;">'+(idx+1)+'</td>'+
         '<td><input type="text" class="name" autocomplete="off" value="'+escapeAttr(it.name)+'" placeholder="พิมพ์ชื่อ/สเปกสินค้า (แยกคำได้) เช่น แผ่น 304 2B"></td>'+
-        '<td><input type="number" class="qty" value="'+it.qty+'" min="0" step="0.01"></td>'+
-        '<td><input type="number" class="price" value="'+it.price+'" min="0" step="0.01"></td>'+
+        '<td><input type="number" class="qty" value="'+it.qty+'" min="0" step="1"></td>'+
+        '<td><input type="number" class="price" value="'+it.price+'" min="0" step="1">'+'<select class="unit" style="margin-top:3px;width:100%;font-size:11px;"><option value="piece"'+((it.unit||'piece')==='piece'?' selected':'')+'>บาท/ชิ้น</option><option value="kg"'+((it.unit||'piece')==='kg'?' selected':'')+'>บาท/กก.</option></select></td>'+
         '<td class="item-amt">'+fmt(amt)+'</td>'+
         '<td style="text-align:center;"><button type="button" class="btn danger small rm">×</button></td>';
       itemsBody.appendChild(tr);
@@ -863,7 +863,7 @@
       nameInput.onblur = () => { setTimeout(closeSuggest, 150); };
       tr.querySelector('.qty').oninput = (e) => { it.qty = e.target.value; renderTotals(); tr.querySelector('.item-amt').textContent = fmt((Number(it.qty)||0)*(Number(it.price)||0)); };
       tr.querySelector('.price').oninput = (e) => { it.price = e.target.value; renderTotals(); tr.querySelector('.item-amt').textContent = fmt((Number(it.qty)||0)*(Number(it.price)||0)); };
-      tr.querySelector('.rm').onclick = () => { items.splice(idx,1); renderItems(); renderTotals(); };
+      tr.querySelector('.rm').onclick = () => { items.splice(idx,1); renderItems(); renderTotals(); }; tr.querySelector('.unit').onchange = (e) => { it.unit = e.target.value; };
     });
     renderTotals();
   }
@@ -926,7 +926,7 @@
       customerPhone: document.getElementById('customerPhone').value.trim(),
       contact: document.getElementById('contact').value.trim(),
       issueDate: document.getElementById('issueDate').value,
-      items: items.map(it => ({name: it.name, qty: Number(it.qty)||0, price: Number(it.price)||0})),
+      items: items.map(it => ({name: it.name, qty: Number(it.qty)||0, price: Number(it.price)||0, unit: it.unit || 'piece'})),
       vatMode: document.querySelector('input[name=vatMode]:checked').value,
       creditMode: document.querySelector('input[name=creditMode]:checked').value,
       creditDays: document.getElementById('creditDays').value,
@@ -1056,7 +1056,7 @@
     document.getElementById('customerPhone').value = q.customerPhone || '';
     document.getElementById('contact').value = q.contact || '';
     document.getElementById('issueDate').value = q.issueDate || '';
-    items = (q.items || []).map(it => ({name: it.name, qty: it.qty, price: it.price}));
+    items = (q.items || []).map(it => ({name: it.name, qty: it.qty, price: it.price, unit: it.unit || 'piece'}));
     if(items.length === 0) items.push({name:'', qty:1, price:0});
     renderItems();
     document.querySelector('input[name=vatMode][value="'+q.vatMode+'"]').checked = true;
@@ -1214,7 +1214,7 @@
     const lines = q.items.filter(it => it.name).map(it => {
       const preset = presets.find(p => p.name === it.name);
       const qty = Number(it.qty)||0;
-      totalPieces += qty;
+      if(it.unit === 'kg'){ totalWeight += qty; return it.name + ' x ' + qty + ' กก.'; } totalPieces += qty;
       if(preset && preset.weight){
         totalWeight += preset.weight * qty;
       } else {
