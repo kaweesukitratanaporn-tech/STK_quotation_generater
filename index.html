@@ -211,8 +211,8 @@
 
     <div class="row">
       <div class="field" style="max-width:260px;">
-        <label>2. เบอร์โทรลูกค้า *</label>
-        <input type="text" id="customerPhone" list="customerPhoneDatalist" placeholder="เช่น 0812345678 — เลือกจากรายชื่อด้านบน หรือพิมพ์เบอร์ใหม่" required>
+        <label>2. เบอร์โทรลูกค้า (กรอกภายหลังได้ — แต่ต้องกรอกก่อนส่งไปแอปขนส่ง)</label>
+        <input type="text" id="customerPhone" list="customerPhoneDatalist" placeholder="เช่น 0812345678 — เลือกจากรายชื่อด้านบน หรือพิมพ์เบอร์ใหม่">
         <span id="customerPhoneHint" style="font-size:11px;color:#2a7a4b;"></span>
       </div>
       <div class="field">
@@ -971,7 +971,7 @@
   // ---------- order stage (kanban) ----------
   function isOrderComplete(data){
     const hasValidItem = (data.items||[]).some(it => it.name && String(it.name).trim() && Number(it.qty) > 0 && Number(it.price) > 0);
-    return !!(data.customerName && data.customerName.trim() && data.customerPhone && data.customerPhone.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim() && data.poAttachment);
+    return !!(data.customerName && data.customerName.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim() && data.poAttachment);
   }
   function shippingComplete(q){
     const s = q.shipping || {};
@@ -998,7 +998,6 @@
   document.getElementById('saveDraftBtn').onclick = () => {
     const data = gatherForm();
     if(!data.customerName){ alert('กรุณากรอกชื่อบริษัทลูกค้าก่อนบันทึก'); return; }
-    if(!data.customerPhone){ alert('กรุณากรอกเบอร์โทรลูกค้าก่อนบันทึก'); return; }
     const complete = isOrderComplete(data);
     if(editingId){
       const idx = quotations.findIndex(x => x.id === editingId);
@@ -1151,20 +1150,12 @@
     }
 
     if(q.orderStage === 'review'){
-      if(shippingComplete(q) && !q.shipReady){
-        actions.appendChild(mkBtn('พร้อมส่ง', 'success', () => {
-          const idx = quotations.findIndex(x => x.id === q.id);
-          if(idx > -1){ quotations[idx].shipReady = true; saveAndPush(quotations[idx]); renderList(); }
-        }));
-      } else if(q.shipReady && !q.approved){
-        actions.appendChild(mkBtn('อนุมัติ', '', () => {
-          const idx = quotations.findIndex(x => x.id === q.id);
-          if(idx > -1){ quotations[idx].approved = true; quotations[idx].orderStage = 'ready'; saveAndPush(quotations[idx]); renderList(); }
-        }));
+      if(shippingComplete(q)){
+        actions.appendChild(mkBtn('🚚 ส่งไปแอปขนส่ง (Admin)', 'success', () => sendToLogisticsAsAdmin(q)));
       }
     }
     if(q.orderStage === 'ready'){
-                actions.appendChild(mkBtn('🚚 ส่งไปแอป Logistics', 'success', () => sendToLogistics(q)));
+      actions.appendChild(mkBtn('🚚 ส่งไปแอปขนส่ง (Admin)', 'success', () => sendToLogisticsAsAdmin(q)));
       actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
         const idx = quotations.findIndex(x => x.id === q.id);
         if(idx > -1){ quotations[idx].orderStage = 'review'; quotations[idx].approved = false; saveAndPush(quotations[idx]); renderList(); }
@@ -1297,6 +1288,16 @@
   const LOGISTICS_API_URL = LOGISTICS_ORIGIN + '/api/orders/from-quotation';
   const LOGISTICS_BRIDGE_TOKEN = '07f4fbb9d400a54b766361f367712985fa507a29c5589c5e';
 
+  // เฉพาะแอดมิน (รู้รหัส PIN 6 หลักนี้) เท่านั้นที่กดส่งไปแอปขนส่งได้ — กันพนักงาน
+  // ขายกดส่งออเดอร์ที่ยังไม่พร้อมจริง ๆ ออกไปโดยไม่ตั้งใจ
+  const ADMIN_SEND_PIN = '760006';
+  function sendToLogisticsAsAdmin(q){
+    const pin = prompt('กรอกรหัส Admin 6 หลัก เพื่อส่งออเดอร์นี้ไปแอปขนส่ง');
+    if(pin === null) return; // ผู้ใช้กดยกเลิก
+    if(pin.trim() !== ADMIN_SEND_PIN){ alert('รหัส Admin ไม่ถูกต้อง'); return; }
+    sendToLogistics(q);
+  }
+
   // เบอร์โทรลูกค้า -> เติมที่อยู่/แผนที่/ชื่อลูกค้าอัตโนมัติ ถ้าเคยมีอยู่ใน
   // "ข้อมูลลูกค้า" (Google Sheet เดียวกับที่แอป Logistics ใช้) — ใช้ endpoint
   // เดียวกับที่แอป Logistics เองก็เรียกตอนสร้างออเดอร์ตรง (อ่านอย่างเดียว
@@ -1428,6 +1429,10 @@
     const idx = quotations.findIndex(x => x.id === q.id);
     if(idx === -1) return;
     const r = buildShippingRecord(quotations[idx]);
+    if(!r.phone || !r.phone.trim()){
+      alert('กรุณากรอกเบอร์โทรลูกค้าก่อนส่งไปแอปขนส่ง (แก้ไขได้ที่ปุ่ม "แก้ไข" หรือ "ข้อมูลจัดส่ง")');
+      return;
+    }
     if(!r.address.trim() || !r.mapLink.trim()){
       alert('กรุณากรอกที่อยู่จัดส่งและลิงก์ Google Map ในหน้า "ข้อมูลจัดส่ง" ให้ครบก่อนส่ง');
       return;
