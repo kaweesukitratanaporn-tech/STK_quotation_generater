@@ -1132,12 +1132,9 @@
     listGridDraft.innerHTML = '';
     listGridReview.innerHTML = '';
     listGridReady.innerHTML = '';
-    // ออเดอร์ "รับเอง" ที่ปิดงานแล้ว (pickupCompleted) ให้ซ่อนออกจากบอร์ด
-    // แต่ยังไม่ลบจริงจาก Google Sheet — ประวัติยังอยู่ครบ เผื่อย้อนดูทีหลัง
-    const visibleQuotations = quotations.filter(q => !q.pickupCompleted);
-    emptyMsg.classList.toggle('hidden', visibleQuotations.length>0);
+    emptyMsg.classList.toggle('hidden', quotations.length>0);
     const buckets = {draft:[], review:[], ready:[]};
-    visibleQuotations.forEach(q => buckets[q.orderStage].push(q));
+    quotations.forEach(q => buckets[q.orderStage].push(q));
     emptyDraft.classList.toggle('hidden', buckets.draft.length>0);
     emptyReview.classList.toggle('hidden', buckets.review.length>0);
     emptyReady.classList.toggle('hidden', buckets.ready.length>0);
@@ -1189,11 +1186,7 @@
       }
     }
     if(q.orderStage === 'ready'){
-      if(isPickup){
-        actions.appendChild(mkBtn('✅ ลูกค้ารับเองแล้ว', 'success', () => completePickup(q)));
-      } else {
-        actions.appendChild(mkBtn('🚚 ส่งไปแอปขนส่ง (Admin)', 'success', () => sendToLogisticsAsAdmin(q)));
-      }
+      actions.appendChild(mkBtn('🚚 ส่งไปแอปขนส่ง (Admin)', 'success', () => sendToLogisticsAsAdmin(q)));
       actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
         const idx = quotations.findIndex(x => x.id === q.id);
         if(idx > -1){ quotations[idx].orderStage = 'review'; quotations[idx].approved = false; saveAndPush(quotations[idx]); renderList(); }
@@ -1333,6 +1326,7 @@
       totalPieces: summary.totalPieces,
       totalWeightKg: Number(summary.totalWeight.toFixed(2)),
       weightNote: summary.weightNote,
+      deliveryMethod: s.method === 'pickup' ? 'pickup' : 'delivery',
       address: s.address || '',
       mapLink: s.mapLink || '',
       shipDate: s.shipDate || '',
@@ -1356,20 +1350,6 @@
     if(pin === null) return; // ผู้ใช้กดยกเลิก
     if(pin.trim() !== ADMIN_SEND_PIN){ alert('รหัส Admin ไม่ถูกต้อง'); return; }
     sendToLogistics(q);
-  }
-
-  // ออเดอร์ "รับเอง" ไม่ต้องส่งไปแอปขนส่ง — แค่ยืนยันว่าลูกค้ามารับของแล้ว
-  // แล้วซ่อนออกจากบอร์ด ไม่ต้องใส่ PIN (ไม่ได้ส่งข้อมูลออกไปที่ไหน ความเสี่ยง
-  // ต่ำกว่าการส่งเข้าแอปขนส่งจริง) ประวัติยังอยู่ครบใน Google Sheet เหมือนเดิม
-  // เพราะยังคง sync แบบ 'save' ไว้ ไม่ได้ลบแถวทิ้งจริง
-  function completePickup(q){
-    if(!confirm('ยืนยันว่าลูกค้ามารับสินค้าเองเรียบร้อยแล้วใช่ไหม?\nรายการนี้จะถูกซ่อนออกจากบอร์ด (ประวัติยังอยู่ใน Google Sheet)')) return;
-    const idx = quotations.findIndex(x => x.id === q.id);
-    if(idx === -1) return;
-    quotations[idx].pickupCompleted = true;
-    quotations[idx].pickupCompletedAt = new Date().toISOString();
-    saveAndPush(quotations[idx]);
-    renderList();
   }
 
   // เบอร์โทรลูกค้า -> เติมที่อยู่/แผนที่/ชื่อลูกค้าอัตโนมัติ ถ้าเคยมีอยู่ใน
@@ -1502,16 +1482,13 @@
   async function sendToLogistics(q){
     const idx = quotations.findIndex(x => x.id === q.id);
     if(idx === -1) return;
-    if(quotations[idx].shipping && quotations[idx].shipping.method === 'pickup'){
-      alert('ออเดอร์นี้เป็นแบบลูกค้ารับเอง ไม่ต้องส่งไปแอปขนส่ง — ใช้ปุ่ม "ลูกค้ารับเองแล้ว" แทน');
-      return;
-    }
     const r = buildShippingRecord(quotations[idx]);
     if(!r.phone || !r.phone.trim()){
       alert('กรุณากรอกเบอร์โทรลูกค้าก่อนส่งไปแอปขนส่ง (แก้ไขได้ที่ปุ่ม "แก้ไข" หรือ "ข้อมูลจัดส่ง")');
       return;
     }
-    if(!r.address.trim() || !r.mapLink.trim()){
+    // ออเดอร์ "รับเอง" ไม่มีที่อยู่/แผนที่ — บังคับกรอกเฉพาะออเดอร์จัดส่งเท่านั้น
+    if(r.deliveryMethod !== 'pickup' && (!r.address.trim() || !r.mapLink.trim())){
       alert('กรุณากรอกที่อยู่จัดส่งและลิงก์ Google Map ในหน้า "ข้อมูลจัดส่ง" ให้ครบก่อนส่ง');
       return;
     }
