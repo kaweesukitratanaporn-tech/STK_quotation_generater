@@ -87,6 +87,7 @@
   .badge.waiting{background:#fef3c7;color:#92400e;}
   .badge.ready{background:#d1fae5;color:#065f46;}
   .badge.nofill{background:#eee;color:#666;}
+  .badge.pickup{background:#dbeafe;color:#1e40af;}
   .export-box{background:#f7f7f7;border:1px solid var(--border);border-radius:8px;padding:12px;margin-top:14px;font-size:13px;}
   .export-box table{width:100%;border-collapse:collapse;}
   .export-box td{padding:5px 6px;vertical-align:top;border-bottom:1px solid #e5e5e5;}
@@ -419,12 +420,25 @@
     </div>
     <div style="padding:18px 20px;">
         <div class="row">
+          <div class="field">
+            <label>วิธีรับสินค้า</label>
+            <div style="display:flex;gap:18px;padding-top:6px;">
+              <label style="font-weight:normal;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="radio" name="shipMethod" id="shipMethodDelivery" value="delivery" checked> 🚚 จัดส่ง
+              </label>
+              <label style="font-weight:normal;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="radio" name="shipMethod" id="shipMethodPickup" value="pickup"> 🏠 ลูกค้ามารับเอง
+              </label>
+            </div>
+          </div>
+        </div>
+        <div class="row">
           <div class="field" style="max-width:260px;">
             <label>0. เบอร์โทรลูกค้า</label>
             <input type="text" id="shipPhone" placeholder="พิมพ์แล้วออกนอกช่องจะเติมข้อมูลลูกค้าเดิมให้อัตโนมัติ">
           </div>
         </div>
-      <div class="row">
+      <div class="row" id="shipDeliveryFields">
         <div class="field">
           <label>1. ที่อยู่จัดส่ง</label>
           <textarea id="shipAddress" style="min-height:60px;"></textarea>
@@ -436,7 +450,7 @@
       </div>
       <div class="row">
         <div class="field" style="max-width:220px;">
-          <label>2. วันที่จัดส่ง</label>
+          <label id="shipDateLabel">2. วันที่จัดส่ง</label>
           <input type="date" id="shipDate">
         </div>
       </div>
@@ -955,7 +969,11 @@
   function renderPoAttachmentPreview(){
     const box = document.getElementById('poAttachmentPreview');
     if(poAttachmentCurrent){
-      box.innerHTML = 'แนบไฟล์: ' + escapeHtml(poAttachmentCurrent.name) + ' — <a href="#" id="clearPoAttachBtn">ลบไฟล์แนบ</a>';
+      // ไฟล์ที่อัปโหลดขึ้น Drive แล้วจะมี driveUrl — ถ้ายังไม่เคยอัปโหลด (เพิ่งเลือก
+      // ไฟล์ในเครื่อง ยังไม่กด บันทึก/อัปเดต) จะมีแค่ dataUrl ให้ดูตัวอย่างไปก่อนได้
+      const viewUrl = poAttachmentCurrent.driveUrl || poAttachmentCurrent.dataUrl || '';
+      const viewLink = viewUrl ? (' — <a href="'+escapeHtml(viewUrl)+'" target="_blank" rel="noopener">ดูไฟล์</a>') : '';
+      box.innerHTML = 'แนบไฟล์: ' + escapeHtml(poAttachmentCurrent.name) + viewLink + ' — <a href="#" id="clearPoAttachBtn">ลบไฟล์แนบ</a>';
       document.getElementById('clearPoAttachBtn').onclick = (ev) => {
         ev.preventDefault();
         poAttachmentCurrent = null;
@@ -975,6 +993,9 @@
   }
   function shippingComplete(q){
     const s = q.shipping || {};
+    // "รับเอง" ไม่ต้องกรอกที่อยู่/วันนัดรับก็ถือว่าข้อมูลจัดส่งครบแล้ว —
+    // แค่เลือกวิธีรับสินค้าแล้วกดบันทึกครั้งเดียวก็พร้อมส่งได้เลย
+    if(s.method === 'pickup') return true;
     return !!(s.address && s.address.trim() && s.shipDate);
   }
   function updateSaveButtonLabel(){
@@ -1111,9 +1132,12 @@
     listGridDraft.innerHTML = '';
     listGridReview.innerHTML = '';
     listGridReady.innerHTML = '';
-    emptyMsg.classList.toggle('hidden', quotations.length>0);
+    // ออเดอร์ "รับเอง" ที่ปิดงานแล้ว (pickupCompleted) ให้ซ่อนออกจากบอร์ด
+    // แต่ยังไม่ลบจริงจาก Google Sheet — ประวัติยังอยู่ครบ เผื่อย้อนดูทีหลัง
+    const visibleQuotations = quotations.filter(q => !q.pickupCompleted);
+    emptyMsg.classList.toggle('hidden', visibleQuotations.length>0);
     const buckets = {draft:[], review:[], ready:[]};
-    quotations.forEach(q => buckets[q.orderStage].push(q));
+    visibleQuotations.forEach(q => buckets[q.orderStage].push(q));
     emptyDraft.classList.toggle('hidden', buckets.draft.length>0);
     emptyReview.classList.toggle('hidden', buckets.review.length>0);
     emptyReady.classList.toggle('hidden', buckets.ready.length>0);
@@ -1125,9 +1149,10 @@
   function buildCard(q){
     const comp = COMPANIES[q.company];
     const t = totalsFor(q);
-    const hasShipInfo = !!(q.shipping && q.shipping.address && q.shipping.address.trim());
-    const shipBadgeCls = q.orderStage === 'ready' ? 'ready' : (hasShipInfo ? 'waiting' : 'nofill');
-    const shipBadgeLabel = q.orderStage === 'ready' ? 'พร้อมส่ง' : (hasShipInfo ? 'รอจัดส่ง' : 'ยังไม่กรอกข้อมูลจัดส่ง');
+    const isPickup = !!(q.shipping && q.shipping.method === 'pickup');
+    const hasShipInfo = isPickup || !!(q.shipping && q.shipping.address && q.shipping.address.trim());
+    const shipBadgeCls = isPickup ? 'pickup' : (q.orderStage === 'ready' ? 'ready' : (hasShipInfo ? 'waiting' : 'nofill'));
+    const shipBadgeLabel = isPickup ? '🏠 รับเอง' : (q.orderStage === 'ready' ? 'พร้อมส่ง' : (hasShipInfo ? 'รอจัดส่ง' : 'ยังไม่กรอกข้อมูลจัดส่ง'));
     const div = document.createElement('div');
     div.className = 'qcard ' + comp.class;
     div.innerHTML =
@@ -1144,6 +1169,12 @@
 
     actions.appendChild(mkBtn('ดูตัวอย่าง / พิมพ์', 'secondary', () => openPreview(q)));
     actions.appendChild(mkBtn('แก้ไข', 'secondary', () => loadForEdit(q)));
+    if(q.poAttachment){
+      const poUrl = q.poAttachment.driveUrl || q.poAttachment.dataUrl;
+      if(poUrl){
+        actions.appendChild(mkBtn('📎 ดูไฟล์ PO', 'secondary', () => window.open(poUrl, '_blank', 'noopener')));
+      }
+    }
 
     if(q.orderStage === 'review' || q.orderStage === 'ready'){
       actions.appendChild(mkBtn('ข้อมูลจัดส่ง', '', () => openShippingModal(q)));
@@ -1158,7 +1189,11 @@
       }
     }
     if(q.orderStage === 'ready'){
-      actions.appendChild(mkBtn('🚚 ส่งไปแอปขนส่ง (Admin)', 'success', () => sendToLogisticsAsAdmin(q)));
+      if(isPickup){
+        actions.appendChild(mkBtn('✅ ลูกค้ารับเองแล้ว', 'success', () => completePickup(q)));
+      } else {
+        actions.appendChild(mkBtn('🚚 ส่งไปแอปขนส่ง (Admin)', 'success', () => sendToLogisticsAsAdmin(q)));
+      }
       actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
         const idx = quotations.findIndex(x => x.id === q.id);
         if(idx > -1){ quotations[idx].orderStage = 'review'; quotations[idx].approved = false; saveAndPush(quotations[idx]); renderList(); }
@@ -1224,6 +1259,22 @@
     };
   }
 
+  // สลับโชว์/ซ่อนช่องที่อยู่-แผนที่ และเปลี่ยนป้ายช่องวันที่ ตามวิธีรับสินค้า
+  // ที่เลือกอยู่ตอนนี้ (ไม่ล้างข้อมูลที่เคยกรอกไว้ เผื่อสลับกลับไปกลับมา)
+  function applyShipMethodUI(method){
+    const deliveryFields = document.getElementById('shipDeliveryFields');
+    const dateLabel = document.getElementById('shipDateLabel');
+    if(method === 'pickup'){
+      deliveryFields.classList.add('hidden');
+      dateLabel.textContent = '2. วันที่นัดรับ (ไม่บังคับ)';
+    } else {
+      deliveryFields.classList.remove('hidden');
+      dateLabel.textContent = '2. วันที่จัดส่ง';
+    }
+  }
+  document.getElementById('shipMethodDelivery').addEventListener('change', () => applyShipMethodUI('delivery'));
+  document.getElementById('shipMethodPickup').addEventListener('change', () => applyShipMethodUI('pickup'));
+
   function openShippingModal(q){
     shipEditingQ = q;
     document.getElementById('shipCustomerName').textContent = q.customerName || '(ไม่ระบุชื่อลูกค้า)';
@@ -1232,8 +1283,12 @@
     document.getElementById('shipAddress').value = s.address || q.deliveryPlace || '';
     document.getElementById('shipMapLink').value = s.mapLink || '';
     document.getElementById('shipDate').value = s.shipDate || q.deliveryDate || '';
+    const method = s.method === 'pickup' ? 'pickup' : 'delivery';
+    document.getElementById('shipMethodPickup').checked = method === 'pickup';
+    document.getElementById('shipMethodDelivery').checked = method !== 'pickup';
+    applyShipMethodUI(method);
     const exportBox = document.getElementById('shipExportBox');
-    if(s.address){
+    if(s.address || s.method === 'pickup'){
       exportBox.classList.remove('hidden');
       renderShipExport(q);
     } else {
@@ -1251,7 +1306,9 @@
     if(!shipEditingQ) return;
     const idx = quotations.findIndex(x => x.id === shipEditingQ.id);
     if(idx === -1) return;
+    const method = document.getElementById('shipMethodPickup').checked ? 'pickup' : 'delivery';
     quotations[idx].shipping = {
+      method: method,
       phone: document.getElementById('shipPhone').value.trim(),
       address: document.getElementById('shipAddress').value.trim(),
       mapLink: document.getElementById('shipMapLink').value.trim(),
@@ -1299,6 +1356,20 @@
     if(pin === null) return; // ผู้ใช้กดยกเลิก
     if(pin.trim() !== ADMIN_SEND_PIN){ alert('รหัส Admin ไม่ถูกต้อง'); return; }
     sendToLogistics(q);
+  }
+
+  // ออเดอร์ "รับเอง" ไม่ต้องส่งไปแอปขนส่ง — แค่ยืนยันว่าลูกค้ามารับของแล้ว
+  // แล้วซ่อนออกจากบอร์ด ไม่ต้องใส่ PIN (ไม่ได้ส่งข้อมูลออกไปที่ไหน ความเสี่ยง
+  // ต่ำกว่าการส่งเข้าแอปขนส่งจริง) ประวัติยังอยู่ครบใน Google Sheet เหมือนเดิม
+  // เพราะยังคง sync แบบ 'save' ไว้ ไม่ได้ลบแถวทิ้งจริง
+  function completePickup(q){
+    if(!confirm('ยืนยันว่าลูกค้ามารับสินค้าเองเรียบร้อยแล้วใช่ไหม?\nรายการนี้จะถูกซ่อนออกจากบอร์ด (ประวัติยังอยู่ใน Google Sheet)')) return;
+    const idx = quotations.findIndex(x => x.id === q.id);
+    if(idx === -1) return;
+    quotations[idx].pickupCompleted = true;
+    quotations[idx].pickupCompletedAt = new Date().toISOString();
+    saveAndPush(quotations[idx]);
+    renderList();
   }
 
   // เบอร์โทรลูกค้า -> เติมที่อยู่/แผนที่/ชื่อลูกค้าอัตโนมัติ ถ้าเคยมีอยู่ใน
@@ -1431,6 +1502,10 @@
   async function sendToLogistics(q){
     const idx = quotations.findIndex(x => x.id === q.id);
     if(idx === -1) return;
+    if(quotations[idx].shipping && quotations[idx].shipping.method === 'pickup'){
+      alert('ออเดอร์นี้เป็นแบบลูกค้ารับเอง ไม่ต้องส่งไปแอปขนส่ง — ใช้ปุ่ม "ลูกค้ารับเองแล้ว" แทน');
+      return;
+    }
     const r = buildShippingRecord(quotations[idx]);
     if(!r.phone || !r.phone.trim()){
       alert('กรุณากรอกเบอร์โทรลูกค้าก่อนส่งไปแอปขนส่ง (แก้ไขได้ที่ปุ่ม "แก้ไข" หรือ "ข้อมูลจัดส่ง")');
