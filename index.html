@@ -1151,7 +1151,10 @@
 
     if(q.orderStage === 'review'){
       if(shippingComplete(q)){
-        actions.appendChild(mkBtn('🚚 ส่งไปแอปขนส่ง (Admin)', 'success', () => sendToLogisticsAsAdmin(q)));
+        actions.appendChild(mkBtn('พร้อมส่ง', 'success', () => {
+          const idx = quotations.findIndex(x => x.id === q.id);
+          if(idx > -1){ quotations[idx].orderStage = 'ready'; quotations[idx].shipReady = true; saveAndPush(quotations[idx]); renderList(); }
+        }));
       }
     }
     if(q.orderStage === 'ready'){
