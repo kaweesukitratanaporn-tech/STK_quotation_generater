@@ -156,14 +156,15 @@
   table.os th{text-align:center;}
   .os-bottom{margin-top:14px;font-size:13px;display:flex;flex-wrap:wrap;gap:24px;align-items:baseline;}
   .os-bottom2{margin-top:10px;font-size:13px;display:flex;flex-wrap:wrap;gap:24px;align-items:center;}
-    .paper.os-size{width:210mm;min-height:0;height:148mm;padding:8mm 12mm;}
+    .paper.os-size{width:185mm;min-height:0;height:145mm;padding:8mm 12mm;}
   .paper.os-size .lbl{font-weight:600;margin-right:4px;}
   .paper.os-size .dotted{display:inline-block;min-width:120px;border-bottom:1px dotted #333;padding-bottom:1px;}
   table.os td.spec{text-align:left;padding-left:8px;}
   table.os td.num{text-align:right;}
+  table.os .itemnote{font-size:10.5px;color:#555;margin-top:2px;}
   .os-cert{display:inline-flex;align-items:center;gap:5px;}
   .os-cert .box{display:inline-block;width:13px;height:13px;border:1.4px solid #333;text-align:center;line-height:12px;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
-  @page ossheet{ size: 210mm 148mm; margin: 8mm; }
+  @page ossheet{ size: 185mm 145mm; margin: 8mm; }
   .paper.os-size{ page: ossheet; }
   @media screen and (max-width:600px){
     main{padding:0 8px 60px;}
@@ -919,7 +920,7 @@
   // ---------- items ----------
   const itemsBody = document.getElementById('itemsBody');
   function addItemRow(data){
-    data = data || {name:'', qty:1, price:0, unit:'piece'};
+    data = data || {name:'', qty:1, price:0, unit:'piece', note:''};
     items.push(data);
     renderItems();
   }
@@ -930,7 +931,8 @@
       const amt = (Number(it.qty)||0) * (Number(it.price)||0);
       tr.innerHTML =
         '<td style="text-align:center;">'+(idx+1)+'</td>'+
-        '<td><input type="text" class="name" autocomplete="off" value="'+escapeAttr(it.name)+'" placeholder="พิมพ์ชื่อ/สเปกสินค้า (แยกคำได้) เช่น แผ่น 304 2B"></td>'+
+                '<td><input type="text" class="name" autocomplete="off" value="'+escapeAttr(it.name)+'" placeholder="พิมพ์ชื่อ/สเปกสินค้า (แยกคำได้) เช่น แผ่น 304 2B">'+
+                '<input type="text" class="itemnote" autocomplete="off" value="'+escapeAttr(it.note||'')+'" placeholder="หมายเหตุ (ตัด/แปรรูป) เช่น ตัด 3 เมตร 2 ท่อน" style="margin-top:4px;font-size:12px;color:#555;"></td>'+
         '<td><input type="number" class="qty" value="'+it.qty+'" min="0" step="1"></td>'+
         '<td><input type="number" class="price" value="'+it.price+'" min="0" step="1">'+'<select class="unit" style="margin-top:3px;width:100%;font-size:11px;"><option value="piece"'+((it.unit||'piece')==='piece'?' selected':'')+'>บาท/ชิ้น</option><option value="kg"'+((it.unit||'piece')==='kg'?' selected':'')+'>บาท/กก.</option></select></td>'+
         '<td class="item-amt">'+fmt(amt)+'</td>'+
@@ -977,6 +979,7 @@
       tr.querySelector('.qty').oninput = (e) => { it.qty = e.target.value; renderTotals(); tr.querySelector('.item-amt').textContent = fmt((Number(it.qty)||0)*(Number(it.price)||0)); };
       tr.querySelector('.price').oninput = (e) => { it.price = e.target.value; renderTotals(); tr.querySelector('.item-amt').textContent = fmt((Number(it.qty)||0)*(Number(it.price)||0)); };
       tr.querySelector('.rm').onclick = () => { items.splice(idx,1); renderItems(); renderTotals(); }; tr.querySelector('.unit').onchange = (e) => { it.unit = e.target.value; };
+            tr.querySelector('.itemnote').oninput = (e) => { it.note = e.target.value; };
     });
     renderTotals();
   }
@@ -1039,7 +1042,7 @@
       customerPhone: document.getElementById('customerPhone').value.trim(),
       contact: document.getElementById('contact').value.trim(),
       issueDate: document.getElementById('issueDate').value,
-      items: items.map(it => ({name: it.name, qty: Number(it.qty)||0, price: Number(it.price)||0, unit: it.unit || 'piece'})),
+      items: items.map(it => ({name: it.name, qty: Number(it.qty)||0, price: Number(it.price)||0, unit: it.unit || 'piece', note: (it.note||'').trim()})),
       vatMode: document.querySelector('input[name=vatMode]:checked').value,
       creditMode: document.querySelector('input[name=creditMode]:checked').value,
       creditDays: document.getElementById('creditDays').value,
@@ -1182,7 +1185,7 @@
     document.getElementById('customerPhone').value = q.customerPhone || '';
     document.getElementById('contact').value = q.contact || '';
     document.getElementById('issueDate').value = q.issueDate || '';
-    items = (q.items || []).map(it => ({name: it.name, qty: it.qty, price: it.price, unit: it.unit || 'piece'}));
+    items = (q.items || []).map(it => ({name: it.name, qty: it.qty, price: it.price, unit: it.unit || 'piece', note: it.note || ''}));
     if(items.length === 0) items.push({name:'', qty:1, price:0});
     renderItems();
     document.querySelector('input[name=vatMode][value="'+q.vatMode+'"]').checked = true;
@@ -1751,7 +1754,8 @@
       let weight = '';
       if(it.unit === 'kg'){ weight = fmt(qty); }
       else if(preset && preset.weight){ weight = fmt(preset.weight * qty); }
-      return '<tr><td></td><td class="spec">'+escapeHtml(it.name)+'</td><td style="text-align:center;">'+qtyLabel+'</td><td class="num">'+weight+'</td><td class="num">'+fmt(qty*(Number(it.price)||0))+'</td></tr>';
+      const noteLine = it.note ? '<div class="itemnote">'+escapeHtml(it.note)+'</div>' : '';
+            return '<tr><td></td><td class="spec">'+escapeHtml(it.name)+noteLine+'</td><td style="text-align:center;">'+qtyLabel+'</td><td class="num">'+weight+'</td><td class="num">'+fmt(qty*(Number(it.price)||0))+'</td></tr>';
     });
     const MIN_ROWS = 6;
     for(let i = rows.length; i < MIN_ROWS; i++){
