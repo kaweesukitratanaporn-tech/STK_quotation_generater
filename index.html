@@ -156,6 +156,15 @@
   table.os th{text-align:center;}
   .os-bottom{margin-top:14px;font-size:13px;display:flex;flex-wrap:wrap;gap:24px;align-items:baseline;}
   .os-bottom2{margin-top:10px;font-size:13px;display:flex;flex-wrap:wrap;gap:24px;align-items:center;}
+    .paper.os-size{width:210mm;min-height:0;height:148mm;padding:8mm 12mm;}
+  .paper.os-size .lbl{font-weight:600;margin-right:4px;}
+  .paper.os-size .dotted{display:inline-block;min-width:120px;border-bottom:1px dotted #333;padding-bottom:1px;}
+  table.os td.spec{text-align:left;padding-left:8px;}
+  table.os td.num{text-align:right;}
+  .os-cert{display:inline-flex;align-items:center;gap:5px;}
+  .os-cert .box{display:inline-block;width:13px;height:13px;border:1.4px solid #333;text-align:center;line-height:12px;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  @page ossheet{ size: 210mm 148mm; margin: 8mm; }
+  .paper.os-size{ page: ossheet; }
   @media screen and (max-width:600px){
     main{padding:0 8px 60px;}
     .card{padding:12px;}
@@ -340,10 +349,29 @@
 
   <div class="card">
     <h2>11. ยืนยันคำสั่งซื้อ</h2>
-    <div class="field">
-      <label>แนบใบเสนอราคาที่ลูกค้าเซ็น หรือ PO (จำเป็นก่อนเปิดออเดอร์)</label>
-      <input type="file" id="poAttachmentInput" accept="image/*,application/pdf">
-      <div id="poAttachmentPreview" class="po-preview"></div>
+    <div class="row">
+      <div class="field">
+        <label>แนบใบเสนอราคาที่ลูกค้าเซ็น หรือ PO (จำเป็นก่อนเปิดออเดอร์)</label>
+        <input type="file" id="poAttachmentInput" accept="image/*,application/pdf">
+        <div id="poAttachmentPreview" class="po-preview"></div>
+      </div>
+      <div class="field" style="max-width:200px;">
+        <label>เลขที่ PO</label>
+        <input type="text" id="poNumber" placeholder="เช่น PO-00123">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field" style="max-width:260px;">
+        <label>ผู้ขาย</label>
+        <input type="text" id="salesperson" list="salespersonDatalist" placeholder="ชื่อพนักงานขาย">
+        <datalist id="salespersonDatalist"></datalist>
+      </div>
+      <div class="field" style="max-width:180px;">
+        <label>&nbsp;</label>
+        <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
+          <input type="checkbox" id="certification" style="width:auto;"> Certification
+        </label>
+      </div>
     </div>
   </div>
 
@@ -471,6 +499,8 @@
   </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 (function(){
   const LS_Q = 'stk_quotations';
@@ -501,6 +531,25 @@
   let editingId = null;          // set when editing an existing saved quotation
   let currentPreviewData = null; // quotation object shown in the modal
   let poAttachmentCurrent = null; // ใบเสนอราคาที่เซ็น/PO ของออเดอร์ที่กำลังกรอก (ต้องมีก่อนเปิดออเดอร์)
+  
+  // ---------- ผู้ขาย (salesperson) — ทำงานแบบเดียวกับรายชื่อลูกค้า: จำชื่อไว้
+  // ในเครื่องหลังส่ง/บันทึกครั้งหนึ่งแล้ว ครั้งต่อไปพิมพ์แค่บางส่วนก็เลือกได้เลย
+  const LS_SALES = 'stk_salespeople';
+  let salespeople = load(LS_SALES, []);
+  function renderSalespersonList(){
+    const dl = document.getElementById('salespersonDatalist');
+    if(!dl) return;
+    dl.innerHTML = '';
+    salespeople.forEach(name => { const o = document.createElement('option'); o.value = name; dl.appendChild(o); });
+  }
+  function rememberSalesperson(name){
+    name = (name||'').trim();
+    if(!name || salespeople.includes(name)) return;
+    salespeople.push(name);
+    save(LS_SALES, salespeople);
+    renderSalespersonList();
+  }
+
 
   function load(key, fallback){
     try{ const v = JSON.parse(localStorage.getItem(key)); return v || fallback; }catch(e){ return fallback; }
@@ -666,9 +715,59 @@
   const QUOTATIONS_SPREADSHEET_ID = '1yShOxCvEpPaLZByRACEbt5BH8hcRffp6X8tbb7bJmlc';
   const STAGE_GIDS = { draft: '27689259', review: '1129416167', ready: '1760579352' };
   const QUOTATIONS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxkdEgOQs77KFPpEequqqXMw-WH-MbeAqEkAEPKrJe94Km3JzWuAfOOssw21APhw3Mt/exec';
+  
+  // ---------- POD Drive Uploader (สคริปต์เดียวกับที่แอป Logistics ใช้เก็บรูป
+  // POD คนขับ) — ขยายให้รับไฟล์ PO และ PDF ใบ Order Sheet จากแอปนี้ด้วย แล้ว
+  // จัดเก็บรวมกันเป็น App Data/วันที่/ชื่อลูกค้า/order/... ส่วน
+  // QUOTATIONS_WEBAPP_URL ด้านบนยังคงทำหน้าที่ซิงค์ข้อมูลใบเสนอราคาเข้า
+  // Google Sheet เหมือนเดิมทุกประการ ไม่แตะต้อง — แค่ไม่ส่งไฟล์ PO ดิบ
+  // (dataUrl) ให้มันอัปโหลดขึ้น Drive อีกต่อไป (อัปโหลดเองผ่านสคริปต์ใหม่
+  // ก่อนแล้วส่งแค่ลิงก์ไปแทน)
+  const POD_DRIVE_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbyhZESP8ZRYerMtlM6PzEAI-ia1SdsoyELZ41uaPYIA61bJlOxP8ZXyY4R7br0dntGvCvQ/exec';
+  const POD_DRIVE_TOKEN = '5570286b30a7aedbfa4a9dea78417a8e0b90e106a928445d';
+
+  function ddmmyyyy(dstr){
+    let d = dstr ? new Date(dstr+'T00:00:00') : new Date();
+    if(isNaN(d)) d = new Date();
+    const p = n => String(n).padStart(2,'0');
+    return p(d.getDate()) + '-' + p(d.getMonth()+1) + '-' + d.getFullYear();
+  }
+
+  async function uploadToPodDrive(payload){
+    try{
+      const res = await fetch(POD_DRIVE_WEBAPP_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'text/plain;charset=utf-8'},
+        body: JSON.stringify(Object.assign({token: POD_DRIVE_TOKEN}, payload))
+      });
+      return await res.json();
+    }catch(e){ return {ok:false, error:String(e)}; }
+  }
+
+  // ถ้า PO ที่แนบไว้ยังไม่เคยอัปโหลดขึ้น Drive (มีแค่ dataUrl ในเครื่อง) ให้
+  // อัปโหลดผ่าน POD Drive Uploader ก่อน แล้วเก็บ driveUrl กลับไว้ในตัว q เอง
+  // (best-effort — ถ้าอัปโหลดไม่สำเร็จ ก็ยังมี dataUrl ให้ลองใหม่ครั้งหน้าได้)
+  async function ensurePoUploaded(q){
+    if(!(q.poAttachment && q.poAttachment.dataUrl && !q.poAttachment.driveUrl)) return;
+    const result = await uploadToPodDrive({
+      kind: 'po',
+      customerName: q.customerName || '',
+      dateStr: ddmmyyyy(q.issueDate),
+      poNo: q.poNumber || '',
+      file: { filename: q.poAttachment.name, dataUrl: q.poAttachment.dataUrl }
+    });
+    if(result && result.ok && result.driveUrl){
+      q.poAttachment = { name: q.poAttachment.name, driveUrl: result.driveUrl };
+      const idx = quotations.findIndex(x => x.id === q.id);
+      if(idx > -1){ quotations[idx].poAttachment = q.poAttachment; save(LS_Q, quotations); }
+      if(editingId === q.id){ poAttachmentCurrent = q.poAttachment; renderPoAttachmentPreview(); }
+    }
+  }
+
 
   async function pushQuotationToSheet(q, action){
     try{
+            if(action !== 'delete') await ensurePoUploaded(q);
       const payload = JSON.parse(JSON.stringify(q));
       payload.action = action || 'save';
       // ไฟล์แนบ PO: ถ้าเคยอัปโหลดขึ้น Drive แล้ว (มี driveUrl) ส่งแค่ reference ไม่ต้องส่งไฟล์ซ้ำ
@@ -950,6 +1049,9 @@
       note: document.getElementById('note').value.trim(),
       signer: document.getElementById('signer').value.trim(),
       poAttachment: poAttachmentCurrent,
+            poNumber: document.getElementById('poNumber').value.trim(),
+            salesperson: document.getElementById('salesperson').value.trim(),
+            certification: document.getElementById('certification').checked,
       createdAt: new Date().toISOString()
     };
   }
@@ -1038,6 +1140,7 @@
       quotations.unshift(data);
     }
     data._synced = true;
+        rememberSalesperson(data.salesperson);
     save(LS_Q, quotations);
     pushQuotationToSheet(data, 'save').then(fetchSharedQuotations);
     editingId = null;
@@ -1066,6 +1169,9 @@
     document.getElementById('issueDate').valueAsDate = new Date();
     poAttachmentCurrent = null;
     document.getElementById('poAttachmentInput').value = '';
+        document.getElementById('poNumber').value = '';
+        document.getElementById('salesperson').value = '';
+      document.getElementById('certification').checked = false;
     renderPoAttachmentPreview();
     updateSaveButtonLabel();
   }
@@ -1091,6 +1197,9 @@
     document.getElementById('signer').value = q.signer || '';
     poAttachmentCurrent = q.poAttachment || null;
     document.getElementById('poAttachmentInput').value = '';
+        document.getElementById('poNumber').value = q.poNumber || '';
+        document.getElementById('salesperson').value = q.salesperson || '';
+        document.getElementById('certification').checked = !!q.certification;
     renderPoAttachmentPreview();
     renderTotals();
     updateSaveButtonLabel();
@@ -1166,12 +1275,18 @@
 
     actions.appendChild(mkBtn('ดูตัวอย่าง / พิมพ์', 'secondary', () => openPreview(q)));
     actions.appendChild(mkBtn('แก้ไข', 'secondary', () => loadForEdit(q)));
-    if(q.poAttachment){
-      const poUrl = q.poAttachment.driveUrl || q.poAttachment.dataUrl;
-      if(poUrl){
-        actions.appendChild(mkBtn('📎 ดูไฟล์ PO', 'secondary', () => window.open(poUrl, '_blank', 'noopener')));
+    actions.appendChild(mkBtn('🖨️ ออก order', 'secondary', async (ev) => {
+      const btn = ev.currentTarget;
+      const orig = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = 'กำลังสร้าง PDF...';
+      try{
+        await generateOrderSheetPdf(q);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
       }
-    }
+    }));
 
     if(q.orderStage === 'review' || q.orderStage === 'ready'){
       actions.appendChild(mkBtn('ข้อมูลจัดส่ง', '', () => openShippingModal(q)));
@@ -1478,6 +1593,7 @@
   });
 
   loadCustomers();
+    renderSalespersonList();
 
   async function sendToLogistics(q){
     const idx = quotations.findIndex(x => x.id === q.id);
@@ -1623,7 +1739,113 @@
     );
   }
 
-  // ---------- modal ----------
+    // ---------- Order Sheet (การ์ดกระดาษ S.T.K. ตามภาพตัวอย่าง — ใช้ตอนกด
+  // "ออก order" บนการ์ด) ----------
+  function buildOrderSheetPaper(q){
+    const comp = COMPANIES[q.company];
+    const items = (q.items||[]).filter(it => it.name);
+    let rows = items.map(it => {
+      const preset = presets.find(p => p.name === it.name);
+      const qty = Number(it.qty)||0;
+      const qtyLabel = qty + (it.unit === 'kg' ? ' กก.' : ' ชิ้น');
+      let weight = '';
+      if(it.unit === 'kg'){ weight = fmt(qty); }
+      else if(preset && preset.weight){ weight = fmt(preset.weight * qty); }
+      return '<tr><td></td><td class="spec">'+escapeHtml(it.name)+'</td><td style="text-align:center;">'+qtyLabel+'</td><td class="num">'+weight+'</td><td class="num">'+fmt(qty*(Number(it.price)||0))+'</td></tr>';
+    });
+    const MIN_ROWS = 6;
+    for(let i = rows.length; i < MIN_ROWS; i++){
+      rows.push('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>');
+    }
+    const crLine = q.creditMode === 'cash' ? 'เงินสด' : ((q.creditDays||'-')+' วัน');
+    const certBox = q.certification ? '✓' : '';
+    return (
+      '<div class="paper os-size">'+
+      '<div class="os-title">ORDER SHEET '+escapeHtml(comp.name.toUpperCase())+'<span class="ordno">Order NO. <span class="dotted"></span></span></div>'+
+      '<div class="os-fields">'+
+        '<div class="r"><div><span class="lbl">ชื่อลูกค้า</span><span class="dotted">'+escapeHtml(q.customerName||'')+'</span></div>'+
+        '<div><span class="lbl">เลขที่ PO</span><span class="dotted">'+escapeHtml(q.poNumber||'')+'</span></div></div>'+
+        '<div class="r"><div><span class="lbl">วันที่เขียน</span><span class="dotted">'+fmtDate(q.issueDate)+'</span></div>'+
+        '<div><span class="lbl">กำหนดส่งสินค้า</span><span class="dotted">'+(q.deliveryDate ? fmtDate(q.deliveryDate) : '')+'</span></div></div>'+
+        '<div class="r"><div><span class="lbl">สถานที่จัดส่ง</span><span class="dotted" style="min-width:380px;">'+escapeHtml(q.deliveryPlace||'')+'</span></div></div>'+
+      '</div>'+
+      '<table class="os"><thead><tr><th style="width:14%;">PACK NO.</th><th>รายการ</th><th style="width:12%;">จำนวน</th><th style="width:12%;">น้ำหนัก</th><th style="width:14%;">ราคา</th></tr></thead>'+
+      '<tbody>'+rows.join('')+'</tbody></table>'+
+      '<div class="os-bottom">'+
+        '<span><span class="lbl">Cr.</span><span class="dotted" style="min-width:70px;">'+escapeHtml(crLine)+'</span></span>'+
+        '<span><span class="lbl">ผู้ขาย</span><span class="dotted" style="min-width:100px;">'+escapeHtml(q.salesperson||'')+'</span></span>'+
+        '<span><span class="lbl">ผู้อนุมัติ</span><span class="dotted" style="min-width:100px;"></span></span>'+
+        '<span><span class="lbl">ผู้จัดสินค้า</span><span class="dotted" style="min-width:100px;"></span></span>'+
+      '</div>'+
+      '<div class="os-bottom2">'+
+        '<span><span class="lbl">Note...</span> '+escapeHtml(q.note||'')+'</span>'+
+        '<span class="os-cert"><span class="box">'+certBox+'</span> Certification</span>'+
+        '<span><span class="lbl">สต๊อก</span><span class="dotted" style="min-width:70px;"></span></span>'+
+        '<span><span class="lbl">INV</span><span class="dotted" style="min-width:70px;"></span></span>'+
+      '</div>'+
+      '</div>'
+    );
+  }
+
+  // สร้าง PDF ใบ Order Sheet ขนาดกระดาษจริง (210x148mm) จากการ์ดนี้ ดาวน์โหลด
+  // ไว้ในเครื่อง แล้วอัปโหลดขึ้น Google Drive (App Data/วันที่/ชื่อลูกค้า/order/)
+  // ผ่าน POD Drive Uploader โดยอัตโนมัติ — ชื่อไฟล์: ชื่อลูกค้า-วันที่
+  async function generateOrderSheetPdf(q){
+    if(typeof html2canvas === 'undefined' || !window.jspdf){
+      alert('โหลดไลบรารีสร้าง PDF ไม่สำเร็จ — ตรวจสอบอินเทอร์เน็ตแล้วลองใหม่');
+      return;
+    }
+    const holder = document.createElement('div');
+    holder.style.cssText = 'position:fixed;left:-99999px;top:0;background:#fff;';
+    holder.innerHTML = buildOrderSheetPaper(q);
+    document.body.appendChild(holder);
+    try{
+      if(document.fonts){
+        try{
+          await Promise.all([
+            document.fonts.load("400 16px Sarabun"),
+            document.fonts.load("600 16px Sarabun"),
+            document.fonts.load("700 16px Sarabun"),
+            document.fonts.load("800 16px Sarabun"),
+            document.fonts.load("400 16px 'Noto Sans Thai'"),
+            document.fonts.load("600 16px 'Noto Sans Thai'")
+          ]);
+          await document.fonts.ready;
+        }catch(e){}
+      }
+      const target = holder.querySelector('.os-size');
+      const canvas = await html2canvas(target, {scale:3, backgroundColor:'#ffffff'});
+      const imgData = canvas.toDataURL('image/jpeg', 0.95);
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({orientation:'landscape', unit:'mm', format:[210,148]});
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 148);
+      const pdfDataUri = pdf.output('datauristring');
+      const custName = safeFileName(q.customerName) || 'ลูกค้า';
+      const filename = custName + '-' + fileDate(q.issueDate) + '.pdf';
+      pdf.save(filename);
+      const result = await uploadToPodDrive({
+        kind: 'order_sheet',
+        customerName: q.customerName || '',
+        dateStr: ddmmyyyy(q.issueDate),
+        file: { filename: filename, dataUrl: pdfDataUri }
+      });
+      if(result && result.ok && result.driveUrl){
+        const idx = quotations.findIndex(x => x.id === q.id);
+        if(idx > -1){
+          quotations[idx].orderSheetFile = { name: filename, driveUrl: result.driveUrl };
+          save(LS_Q, quotations);
+        }
+      } else {
+        alert('บันทึกไฟล์ PDF ลงเครื่องแล้ว แต่อัปโหลดขึ้น Drive ไม่สำเร็จ — ลองกด "ออก order" อีกครั้งภายหลัง');
+      }
+    } catch(e){
+      alert('สร้างไฟล์ PDF ไม่สำเร็จ: ' + e.message);
+    } finally {
+      document.body.removeChild(holder);
+    }
+  }
+
+// ---------- modal ----------
   const previewModal = document.getElementById('previewModal');
   const paperContent = document.getElementById('paperContent');
   function fitPaperToScreen(){
