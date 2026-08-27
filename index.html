@@ -327,12 +327,17 @@
 
   <div class="card">
     <h2>9. การจัดส่ง</h2>
+    <div class="radio-group" style="margin-bottom:10px;">
+      <label><input type="radio" name="deliveryOption" value="delivery" checked> จัดส่ง</label>
+      <label><input type="radio" name="deliveryOption" value="pickup"> รับเอง</label>
+      <label><input type="radio" name="deliveryOption" value="wait"> รอแจ้ง</label>
+    </div>
     <div class="row">
-      <div class="field">
+      <div class="field" id="deliveryPlaceField">
         <label>ส่งที่ไหน</label>
         <input type="text" id="deliveryPlace" placeholder="สถานที่จัดส่ง">
       </div>
-      <div class="field">
+      <div class="field" id="deliveryDateField">
         <label>วันที่ส่ง</label>
         <input type="date" id="deliveryDate">
       </div>
@@ -995,6 +1000,22 @@
   document.querySelectorAll('input[name=vatMode]').forEach(r => r.onchange = renderTotals);
   document.getElementById('cashDiscount').oninput = renderTotals;
 
+  // ---------- delivery option toggle ----------
+  function toggleDeliveryFields(){
+    const opt = document.querySelector('input[name=deliveryOption]:checked').value;
+    const placeField = document.getElementById('deliveryPlaceField');
+    const dateField = document.getElementById('deliveryDateField');
+    const placeInput = document.getElementById('deliveryPlace');
+    const dateInput = document.getElementById('deliveryDate');
+    placeField.classList.toggle('hidden', opt==='pickup');
+    dateField.classList.toggle('hidden', opt==='wait');
+    if(opt==='pickup' && !placeInput.value.trim()) placeInput.value='ลูกค้ามารับเองที่บริษัท';
+    if(opt!=='pickup' && placeInput.value==='ลูกค้ามารับเองที่บริษัท') placeInput.value='';
+    if(opt==='wait') dateInput.value='';
+  }
+  document.querySelectorAll('input[name=deliveryOption]').forEach(r => r.onchange = toggleDeliveryFields);
+  toggleDeliveryFields();
+
   // ---------- totals ----------
   function computeTotals(){
     const subtotal = items.reduce((s,it)=> s + (Number(it.qty)||0)*(Number(it.price)||0), 0);
@@ -1049,6 +1070,7 @@
       cashDiscount: document.getElementById('cashDiscount').value,
       deliveryPlace: document.getElementById('deliveryPlace').value.trim(),
       deliveryDate: document.getElementById('deliveryDate').value,
+      deliveryOption: document.querySelector('input[name=deliveryOption]:checked').value,
       note: document.getElementById('note').value.trim(),
       signer: document.getElementById('signer').value.trim(),
       poAttachment: poAttachmentCurrent,
@@ -1094,7 +1116,7 @@
   // ---------- order stage (kanban) ----------
   function isOrderComplete(data){
     const hasValidItem = (data.items||[]).some(it => it.name && String(it.name).trim() && Number(it.qty) > 0 && Number(it.price) > 0);
-    return !!(data.customerName && data.customerName.trim() && data.customerPhone && data.customerPhone.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim() && data.poAttachment);
+    return !!(data.customerName && data.customerName.trim() && data.customerPhone && data.customerPhone.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && (data.deliveryOption==='pickup' || (data.deliveryPlace && data.deliveryPlace.trim())) && data.poAttachment);
   }
   function shippingComplete(q){
     const s = q.shipping || {};
@@ -1167,6 +1189,7 @@
     document.getElementById('contact').value='';
     document.getElementById('deliveryPlace').value='';
     document.getElementById('deliveryDate').value='';
+    toggleDeliveryFields();
     document.getElementById('note').value='';
     document.getElementById('signer').value='';
     document.getElementById('issueDate').valueAsDate = new Date();
@@ -1196,6 +1219,8 @@
     document.getElementById('cashDiscountField').classList.toggle('hidden', q.creditMode !== 'cash');
     document.getElementById('deliveryPlace').value = q.deliveryPlace || '';
     document.getElementById('deliveryDate').value = q.deliveryDate || '';
+    document.querySelector('input[name=deliveryOption][value="'+(q.deliveryOption || 'delivery')+'"]').checked = true;
+    toggleDeliveryFields();
     document.getElementById('note').value = q.note || '';
     document.getElementById('signer').value = q.signer || '';
     poAttachmentCurrent = q.poAttachment || null;
