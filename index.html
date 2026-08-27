@@ -222,7 +222,7 @@
 
     <div class="row">
       <div class="field" style="max-width:260px;">
-        <label>2. เบอร์โทรลูกค้า (กรอกภายหลังได้ — แต่ต้องกรอกก่อนส่งไปแอปขนส่ง)</label>
+        <label>2. เบอร์โทรลูกค้า (จำเป็นก่อนเปิดออเดอร์)</label>
         <input type="text" id="customerPhone" list="customerPhoneDatalist" placeholder="เช่น 0812345678 — เลือกจากรายชื่อด้านบน หรือพิมพ์เบอร์ใหม่">
         <span id="customerPhoneHint" style="font-size:11px;color:#2a7a4b;"></span>
       </div>
@@ -1094,7 +1094,7 @@
   // ---------- order stage (kanban) ----------
   function isOrderComplete(data){
     const hasValidItem = (data.items||[]).some(it => it.name && String(it.name).trim() && Number(it.qty) > 0 && Number(it.price) > 0);
-    return !!(data.customerName && data.customerName.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim() && data.poAttachment);
+    return !!(data.customerName && data.customerName.trim() && data.customerPhone && data.customerPhone.trim() && data.issueDate && hasValidItem && data.vatMode && data.creditMode && data.deliveryPlace && data.deliveryPlace.trim() && data.poAttachment);
   }
   function shippingComplete(q){
     const s = q.shipping || {};
