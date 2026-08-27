@@ -1437,6 +1437,7 @@
   function buildShippingRecord(q){
     const s = q.shipping || {};
     const summary = itemSummary(q);
+        const t = totalsFor(q);
     return {
       customerName: q.customerName || '',
       phone: q.customerPhone || s.phone || '',
@@ -1444,6 +1445,7 @@
       totalPieces: summary.totalPieces,
       totalWeightKg: Number(summary.totalWeight.toFixed(2)),
       weightNote: summary.weightNote,
+          totalValue: Number(t.grand.toFixed(2)),
       deliveryMethod: s.method === 'pickup' ? 'pickup' : 'delivery',
       address: s.address || '',
       mapLink: s.mapLink || '',
@@ -1934,3 +1936,4 @@
 </script>
 </body>
 </html>
+Page_Up
