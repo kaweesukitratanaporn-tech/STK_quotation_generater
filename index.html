@@ -1961,55 +1961,82 @@ return d.getDate() + ' ' + OS_PP_SHORT_MONTHS[d.getMonth()] + ' ' + String(be2).
 }
 function buildOrderSheetPrePrinted(q){
 const items = (q.items||[]).filter(it => it.name);
-const ROW_START = 72.7, ROW_H = 20.5;
+const ROW_START = 72.7, AREA_BOTTOM = 135, DESC_W = 78;
+const availableH = AREA_BOTTOM - ROW_START;
+function measureMM(str, widthMM, sizePt){
+const div = document.createElement("div");
+div.style.cssText = "position:fixed;left:-99999px;top:0;width:"+widthMM+"mm;font-size:"+sizePt+"pt;font-family:'Sarabun','Noto Sans Thai','Angsana New','Leelawadee UI',sans-serif;white-space:pre-wrap;line-height:1.2;";
+div.textContent = str;
+document.body.appendChild(div);
+const h = div.getBoundingClientRect().height;
+document.body.removeChild(div);
+return h * 25.4/96;
+}
+const descOf = it => it.name + (it.note ? ("\n"+it.note) : "");
+const sizes = [20,18,16,14,12,11,10];
+let chosen = sizes[sizes.length-1], rowHs = items.map(()=>0);
+for(const sz of sizes){
+const hs = items.map(it => Math.max(measureMM(descOf(it), DESC_W, sz), sz*0.3528*1.2) + 1.5);
+const total = hs.reduce((a,b)=>a+b, 0);
+if(total <= availableH || sz === sizes[sizes.length-1]){ chosen = sz; rowHs = hs; break; }
+}
+let top = ROW_START;
+const tops = rowHs.map(h => { const t = top; top += h; return t; });
+if(top > AREA_BOTTOM){
+console.warn("[OrderSheet] รายการสินค้าเยอะเกินพื้นที่กระดาษ ("+items.length+" รายการ) — อาจล้นทับเส้นเครดิต/เงินสดบนฟอร์ม");
+}
 const itemsHtml = items.map((it, i) => {
-const top = ROW_START + i*ROW_H;
+const t = tops[i];
 const qty = Number(it.qty)||0;
-const qtyLabel = qty + (it.unit === 'kg' ? ' กก.' : ' ชิ้น');
-const desc = it.name + (it.note ? ('\n'+it.note) : '');
+const qtyLabel = qty + (it.unit === "kg" ? " กก." : " ชิ้น");
+const desc = descOf(it);
 return (
-'<div class="f" style="left:49.7mm;top:'+top+'mm;width:78mm;font-size:20pt;">'+escapeHtml(desc)+'</div>'+
-'<div class="f" style="left:129.5mm;top:'+top+'mm;font-size:20pt;">'+escapeHtml(String(qtyLabel))+'</div>'+
-'<div class="f" style="left:183.5mm;top:'+top+'mm;width:20mm;text-align:right;font-size:20pt;">'+fmt(Number(it.price)||0)+'</div>'
+'<div class="f" style="left:49.7mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+chosen+'pt;">'+escapeHtml(desc)+'</div>'+
+'<div class="f" style="left:129.5mm;top:'+t+'mm;font-size:'+chosen+'pt;">'+escapeHtml(String(qtyLabel))+'</div>'+
+'<div class="f" style="left:183.5mm;top:'+t+'mm;width:20mm;text-align:right;font-size:'+chosen+'pt;">'+fmt(Number(it.price)||0)+'</div>'
 );
-}).join('');
-const vatText = q.vatMode === 'novat' ? 'ไม่มี VAT (บวกเพิ่ม 4%)' : 'VAT+7%';
-const crLine = q.creditMode === 'cash' ? 'เงินสด' : ((q.creditDays||'-')+' วัน');
+}).join("");
+const vatText = q.vatMode === "novat" ? "ไม่มี VAT (บวกเพิ่ม 4%)" : "VAT+7%";
+const crLine = q.creditMode === "cash" ? "เงินสด" : ((q.creditDays||"-")+" วัน");
 const now = new Date();
-const p2 = n => String(n).padStart(2, '0');
-const nowStr = (now.getMonth()+1)+'/'+now.getDate()+'/'+now.getFullYear()+' '+p2(now.getHours())+':'+p2(now.getMinutes());
+const p2 = n => String(n).padStart(2, "0");
+const nowStr = (now.getMonth()+1)+"/"+now.getDate()+"/"+now.getFullYear()+" "+p2(now.getHours())+":"+p2(now.getMinutes());
 return (
 '<div class="paper os-preprint">'+
-'<div class="f" style="left:44.7mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.customerName||'')+'</div>'+
-'<div class="f" style="left:158.4mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.poNumber||'')+'</div>'+
+'<div class="f" style="left:44.7mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.customerName||"")+'</div>'+
+'<div class="f" style="left:158.4mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.poNumber||"")+'</div>'+
 '<div class="f" style="left:44.7mm;top:27.4mm;font-size:20pt;">'+fmtDateShortThaiOs(q.issueDate)+'</div>'+
-'<div class="f" style="left:172.3mm;top:27.4mm;font-size:20pt;">'+(q.deliveryDate ? fmtDateShortThaiOs(q.deliveryDate) : '-')+'</div>'+
-'<div class="f" style="left:44.7mm;top:37.3mm;width:110mm;font-size:20pt;">'+escapeHtml(q.deliveryPlace||'')+'</div>'+
+'<div class="f" style="left:172.3mm;top:27.4mm;font-size:20pt;">'+(q.deliveryDate ? fmtDateShortThaiOs(q.deliveryDate) : "-")+'</div>'+
+'<div class="f" style="left:44.7mm;top:37.3mm;width:110mm;font-size:20pt;">'+escapeHtml(q.deliveryPlace||"")+'</div>'+
 itemsHtml+
 '<div class="f" style="left:32.8mm;top:137.9mm;font-size:18pt;">'+escapeHtml(crLine)+'</div>'+
-'<div class="f" style="left:79.3mm;top:137.9mm;font-size:18pt;">'+escapeHtml(q.salesperson||'')+'</div>'+
+'<div class="f" style="left:79.3mm;top:137.9mm;font-size:18pt;">'+escapeHtml(q.salesperson||"")+'</div>'+
 '<div class="f" style="left:49.7mm;top:156.7mm;font-size:20pt;">'+vatText+'</div>'+
-'<div class="f" style="left:145.5mm;top:158.1mm;font-size:16pt;">'+escapeHtml(q.salesperson||'')+' ออกออเดอร์<br>'+nowStr+'</div>'+
+'<div class="f" style="left:145.5mm;top:158.1mm;font-size:16pt;">'+escapeHtml(q.salesperson||"")+' ออกออเดอร์<br>'+nowStr+'</div>'+
 '</div>'
 );
 }
 async function printOrderSheetPrePrinted(q){
-const printArea = document.getElementById('printArea');
-printArea.innerHTML = buildOrderSheetPrePrinted(q);
+const printArea = document.getElementById("printArea");
 try{
 if(document.fonts){
 await Promise.all([
 document.fonts.load("400 20pt Sarabun"),
 document.fonts.load("400 20pt 'Noto Sans Thai'"),
 document.fonts.load("400 18pt Sarabun"),
-document.fonts.load("400 16pt Sarabun")
+document.fonts.load("400 16pt Sarabun"),
+document.fonts.load("400 14pt Sarabun"),
+document.fonts.load("400 12pt Sarabun"),
+document.fonts.load("400 11pt Sarabun"),
+document.fonts.load("400 10pt Sarabun")
 ]);
 await document.fonts.ready;
 }
 }catch(e){}
-const custName = safeFileName(q.customerName) || 'ลูกค้า';
-document.title = 'OrderSheet_' + custName + '_' + fileDate(q.issueDate);
-window.addEventListener('afterprint', restoreTitle);
+printArea.innerHTML = buildOrderSheetPrePrinted(q);
+const custName = safeFileName(q.customerName) || "ลูกค้า";
+document.title = "OrderSheet_" + custName + "_" + fileDate(q.issueDate);
+window.addEventListener("afterprint", restoreTitle);
 window.print();
 }
 
