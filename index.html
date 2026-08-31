@@ -372,6 +372,11 @@
         <input type="text" id="salesperson" list="salespersonDatalist" placeholder="ชื่อพนักงานขาย">
         <datalist id="salespersonDatalist"></datalist>
       </div>
+      <div class="field" style="max-width:260px;">
+        <label>อีเมล/ID เซลล์ (Logis)</label>
+        <input type="text" id="salespersonEmail" list="salespersonEmailDatalist" placeholder="อีเมลบัญชีเซลล์ใน Logis">
+        <datalist id="salespersonEmailDatalist"></datalist>
+      </div>
       <div class="field" style="max-width:180px;">
         <label>&nbsp;</label>
         <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;">
@@ -542,26 +547,39 @@
   // ในเครื่องหลังส่ง/บันทึกครั้งหนึ่งแล้ว ครั้งต่อไปพิมพ์แค่บางส่วนก็เลือกได้เลย
   const LS_SALES = 'stk_salespeople';
   let salespeople = load(LS_SALES, []);
+  const LS_SALES_EMAILS = 'stk_salespeople_emails';
+  let salespersonEmails = load(LS_SALES_EMAILS, {});
   function renderSalespersonList(){
     const dl = document.getElementById('salespersonDatalist');
-    if(!dl) return;
-    dl.innerHTML = '';
-    salespeople.forEach(name => { const o = document.createElement('option'); o.value = name; dl.appendChild(o); });
+    if(dl){
+      dl.innerHTML = '';
+      salespeople.forEach(name => { const o = document.createElement('option'); o.value = name; dl.appendChild(o); });
+    }
+    const edl = document.getElementById('salespersonEmailDatalist');
+    if(edl){
+      edl.innerHTML = '';
+      Object.values(salespersonEmails).filter(Boolean).forEach(email => { const o = document.createElement('option'); o.value = email; edl.appendChild(o); });
+    }
   }
-  function rememberSalesperson(name){
+  function rememberSalesperson(name, email){
     name = (name||'').trim();
+    email = (email||'').trim();
     if(!name) return;
     if(!salespeople.includes(name)){
       salespeople.push(name);
       save(LS_SALES, salespeople);
-      renderSalespersonList();
     }
+    if(email){
+      salespersonEmails[name] = email;
+      save(LS_SALES_EMAILS, salespersonEmails);
+    }
+    renderSalespersonList();
     // ส่งขึ้น Google Sheet กลาง "รายชื่อเซลล์" แบบ best-effort เหมือนกับ
     // rememberCustomer ด้านบน — ให้ทุกคนในทีมเห็นรายชื่อเดียวกัน
     fetch(LOGISTICS_ORIGIN + '/api/salespeople/upsert', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-quotation-token': LOGISTICS_BRIDGE_TOKEN },
-      body: JSON.stringify({ name })
+      body: JSON.stringify({ name, email })
     }).catch(() => {});
   }
   // โหลดรายชื่อเซลล์ทั้งหมดจากชีตกลางตอนเปิดหน้า มาผสานกับรายชื่อที่เคยจำ
@@ -575,6 +593,8 @@
       const merged = remoteNames.slice();
       salespeople.forEach(name => { if(!merged.includes(name)) merged.push(name); });
       salespeople = merged;
+      json.data.forEach(s => { if(s.name && s.email) salespersonEmails[s.name] = s.email; });
+      save(LS_SALES_EMAILS, salespersonEmails);
       renderSalespersonList();
     } catch(e){
       // best-effort only — silently ignore, local list still works
@@ -1101,6 +1121,7 @@
       poAttachment: poAttachmentCurrent,
             poNumber: document.getElementById('poNumber').value.trim(),
             salesperson: document.getElementById('salesperson').value.trim(),
+    salespersonEmail: document.getElementById('salespersonEmail').value.trim(),
             certification: document.getElementById('certification').checked,
       createdAt: new Date().toISOString()
     };
@@ -1190,7 +1211,7 @@
       quotations.unshift(data);
     }
     data._synced = true;
-        rememberSalesperson(data.salesperson);
+        rememberSalesperson(data.salesperson, data.salespersonEmail);
     rememberCustomer(data.customerName, data.customerPhone);
     save(LS_Q, quotations);
     pushQuotationToSheet(data, 'save').then(fetchSharedQuotations);
@@ -1223,6 +1244,7 @@
     document.getElementById('poAttachmentInput').value = '';
         document.getElementById('poNumber').value = '';
         document.getElementById('salesperson').value = '';
+document.getElementById('salespersonEmail').value = '';
       document.getElementById('certification').checked = false;
     renderPoAttachmentPreview();
     updateSaveButtonLabel();
@@ -1253,6 +1275,7 @@
     document.getElementById('poAttachmentInput').value = '';
         document.getElementById('poNumber').value = q.poNumber || '';
         document.getElementById('salesperson').value = q.salesperson || '';
+document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
         document.getElementById('certification').checked = !!q.certification;
     renderPoAttachmentPreview();
     renderTotals();
@@ -1491,6 +1514,7 @@
         const t = totalsFor(q);
     return {
       customerName: q.customerName || '',
+      salespersonEmail: q.salespersonEmail || '',
       phone: q.customerPhone || s.phone || '',
       items: summary.text,
       totalPieces: summary.totalPieces,
@@ -1709,6 +1733,15 @@
   loadCustomers();
     renderSalespersonList();
   loadSalespeople();
+
+  // เลือก/พิมพ์ชื่อเซลล์ที่เคยบันทึกอีเมลไว้แล้ว — เติมอีเมลให้อัตโนมัติถ้าช่องว่างอยู่
+  document.getElementById('salesperson').addEventListener('change', () => {
+    const name = document.getElementById('salesperson').value.trim();
+    const emailField = document.getElementById('salespersonEmail');
+    if(name && salespersonEmails[name] && !emailField.value.trim()){
+      emailField.value = salespersonEmails[name];
+    }
+  });
 
   async function sendToLogistics(q){
     const idx = quotations.findIndex(x => x.id === q.id);
