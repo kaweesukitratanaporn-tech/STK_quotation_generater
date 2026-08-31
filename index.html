@@ -1960,8 +1960,8 @@ const be2 = (d.getFullYear() + 543) % 100;
 return d.getDate() + ' ' + OS_PP_SHORT_MONTHS[d.getMonth()] + ' ' + String(be2).padStart(2, '0');
 }
 function buildOrderSheetPrePrinted(q){
-const items = (q.items||[]).filter(it => it.name);
-const ROW_START = 72.7, AREA_BOTTOM = 135, DESC_W = 78;
+const allItems = (q.items||[]).filter(it => it.name);
+const ROW_START = 72.7, AREA_BOTTOM = 135, DESC_W = 78, FSIZE = 20;
 const availableH = AREA_BOTTOM - ROW_START;
 function measureMM(str, widthMM, sizePt){
 const div = document.createElement("div");
@@ -1973,36 +1973,40 @@ document.body.removeChild(div);
 return h * 25.4/96;
 }
 const descOf = it => it.name + (it.note ? ("\n"+it.note) : "");
-const sizes = [20,18,16,14,12,11,10];
-let chosen = sizes[sizes.length-1], rowHs = items.map(()=>0);
-for(const sz of sizes){
-const hs = items.map(it => Math.max(measureMM(descOf(it), DESC_W, sz), sz*0.3528*1.2) + 1.5);
-const total = hs.reduce((a,b)=>a+b, 0);
-if(total <= availableH || sz === sizes[sizes.length-1]){ chosen = sz; rowHs = hs; break; }
+const rowH = allItems.map(it => Math.max(measureMM(descOf(it), DESC_W, FSIZE), FSIZE*0.3528*1.2) + 1.5);
+// แบ่งสินค้าออกเป็นหลายหน้า ถ้ารายการเยอะเกินพื้นที่ของฟอร์มเดิม (แผ่นละหน้า ใช้ขนาดตัวอักษรเท่าฟอร์มเสมอ)
+const pages = [];
+let cur = [], curH = 0;
+for(let idx=0; idx<allItems.length; idx++){
+const h = rowH[idx];
+if(cur.length && curH + h > availableH){ pages.push(cur); cur = []; curH = 0; }
+cur.push(idx); curH += h;
 }
-let top = ROW_START;
-const tops = rowHs.map(h => { const t = top; top += h; return t; });
-if(top > AREA_BOTTOM){
-console.warn("[OrderSheet] รายการสินค้าเยอะเกินพื้นที่กระดาษ ("+items.length+" รายการ) — อาจล้นทับเส้นเครดิต/เงินสดบนฟอร์ม");
-}
-const itemsHtml = items.map((it, i) => {
-const t = tops[i];
-const qty = Number(it.qty)||0;
-const qtyLabel = qty + (it.unit === "kg" ? " กก." : " ชิ้น");
-const desc = descOf(it);
-return (
-'<div class="f" style="left:49.7mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+chosen+'pt;">'+escapeHtml(desc)+'</div>'+
-'<div class="f" style="left:129.5mm;top:'+t+'mm;font-size:'+chosen+'pt;">'+escapeHtml(String(qtyLabel))+'</div>'+
-'<div class="f" style="left:183.5mm;top:'+t+'mm;width:20mm;text-align:right;font-size:'+chosen+'pt;">'+fmt(Number(it.price)||0)+'</div>'
-);
-}).join("");
+if(cur.length || allItems.length === 0) pages.push(cur);
 const vatText = q.vatMode === "novat" ? "ไม่มี VAT (บวกเพิ่ม 4%)" : "VAT+7%";
 const crLine = q.creditMode === "cash" ? "เงินสด" : ((q.creditDays||"-")+" วัน");
 const now = new Date();
 const p2 = n => String(n).padStart(2, "0");
 const nowStr = (now.getMonth()+1)+"/"+now.getDate()+"/"+now.getFullYear()+" "+p2(now.getHours())+":"+p2(now.getMinutes());
+const pagesHtml = pages.map((idxList, pageI) => {
+let top = ROW_START;
+const itemsHtml = idxList.map(idx => {
+const it = allItems[idx];
+const t = top;
+top += rowH[idx];
+const qty = Number(it.qty)||0;
+const qtyLabel = qty + (it.unit === "kg" ? " กก." : " ชิ้น");
+const desc = descOf(it);
 return (
-'<div class="paper os-preprint">'+
+'<div class="f" style="left:49.7mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(desc)+'</div>'+
+'<div class="f" style="left:129.5mm;top:'+t+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(String(qtyLabel))+'</div>'+
+'<div class="f" style="left:183.5mm;top:'+t+'mm;width:20mm;text-align:right;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'</div>'
+);
+}).join("");
+const isLast = pageI === pages.length - 1;
+const breakStyle = isLast ? "" : "page-break-after:always;break-after:page;";
+return (
+'<div class="paper os-preprint" style="'+breakStyle+'">'+
 '<div class="f" style="left:44.7mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.customerName||"")+'</div>'+
 '<div class="f" style="left:158.4mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.poNumber||"")+'</div>'+
 '<div class="f" style="left:44.7mm;top:27.4mm;font-size:20pt;">'+fmtDateShortThaiOs(q.issueDate)+'</div>'+
@@ -2015,6 +2019,8 @@ itemsHtml+
 '<div class="f" style="left:145.5mm;top:158.1mm;font-size:16pt;">'+escapeHtml(q.salesperson||"")+' ออกออเดอร์<br>'+nowStr+'</div>'+
 '</div>'
 );
+});
+return pagesHtml.join("");
 }
 async function printOrderSheetPrePrinted(q){
 const printArea = document.getElementById("printArea");
@@ -2024,11 +2030,7 @@ await Promise.all([
 document.fonts.load("400 20pt Sarabun"),
 document.fonts.load("400 20pt 'Noto Sans Thai'"),
 document.fonts.load("400 18pt Sarabun"),
-document.fonts.load("400 16pt Sarabun"),
-document.fonts.load("400 14pt Sarabun"),
-document.fonts.load("400 12pt Sarabun"),
-document.fonts.load("400 11pt Sarabun"),
-document.fonts.load("400 10pt Sarabun")
+document.fonts.load("400 16pt Sarabun")
 ]);
 await document.fonts.ready;
 }
