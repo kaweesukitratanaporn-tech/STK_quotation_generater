@@ -1166,6 +1166,7 @@
     }
     data._synced = true;
         rememberSalesperson(data.salesperson);
+    rememberCustomer(data.customerName, data.customerPhone);
     save(LS_Q, quotations);
     pushQuotationToSheet(data, 'save').then(fetchSharedQuotations);
     editingId = null;
@@ -1543,6 +1544,25 @@
   let hiddenCustomers = load(LS_HIDDEN_CUSTOMERS, []);
   function customerKey(c){ return normPhone(c.phone) || normName(c.name); }
 
+  const LS_LOCAL_CUSTOMERS = 'stk_local_customers';
+  let localCustomers = load(LS_LOCAL_CUSTOMERS, []);
+  // จำชื่อ+เบอร์ลูกค้าไว้ในเครื่องตอนกด "บันทึกเป็นการ์ด" — เหมือนกับที่จำชื่อ
+  // ผู้ขายไว้ (rememberSalesperson) เผื่อยังไม่มีในชีตกลาง หรือชีตยังซิงค์ไม่ทัน
+  // จะได้เลือกจากชิปด้านบนได้เลยในครั้งถัดไป (ไม่ได้ส่งขึ้นชีตกลาง แค่เก็บ
+  // ในเครื่องนี้)
+  function rememberCustomer(name, phone){
+    name = (name||'').trim();
+    phone = (phone||'').trim();
+    if(!name) return;
+    const key = normPhone(phone) || normName(name);
+    if(customers.some(c => customerKey(c) === key)) return;
+    const entry = {name, phone};
+    localCustomers.push(entry);
+    save(LS_LOCAL_CUSTOMERS, localCustomers);
+    customers.push(entry);
+    renderCustomerList();
+  }
+
   function renderCustomerList(){
     const visibleCustomers = customers.filter(c => !hiddenCustomers.includes(customerKey(c)));
     const countEl = document.getElementById('customerSummaryCount');
@@ -1602,11 +1622,15 @@
 
   async function loadCustomers(){
     const statusEl = document.getElementById('customerSyncStatus');
+    customers = localCustomers.slice();
+    renderCustomerList();
     try{
       const res = await fetch(LOGISTICS_ORIGIN + '/api/customers/list');
       const json = await res.json();
       if(!json.ok || !Array.isArray(json.data)) return;
-      customers = json.data;
+      const sheetKeys = new Set(json.data.map(customerKey));
+      const localOnly = localCustomers.filter(c => !sheetKeys.has(customerKey(c)));
+      customers = json.data.concat(localOnly);
       renderCustomerList();
       if(statusEl) statusEl.textContent = 'ซิงค์สำเร็จ ' + customers.length + ' รายการ (อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH') + ')';
     } catch(e){
