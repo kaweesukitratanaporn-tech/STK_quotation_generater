@@ -550,10 +550,35 @@
   }
   function rememberSalesperson(name){
     name = (name||'').trim();
-    if(!name || salespeople.includes(name)) return;
-    salespeople.push(name);
-    save(LS_SALES, salespeople);
-    renderSalespersonList();
+    if(!name) return;
+    if(!salespeople.includes(name)){
+      salespeople.push(name);
+      save(LS_SALES, salespeople);
+      renderSalespersonList();
+    }
+    // ส่งขึ้น Google Sheet กลาง "รายชื่อเซลล์" แบบ best-effort เหมือนกับ
+    // rememberCustomer ด้านบน — ให้ทุกคนในทีมเห็นรายชื่อเดียวกัน
+    fetch(LOGISTICS_ORIGIN + '/api/salespeople/upsert', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-quotation-token': LOGISTICS_BRIDGE_TOKEN },
+      body: JSON.stringify({ name })
+    }).catch(() => {});
+  }
+  // โหลดรายชื่อเซลล์ทั้งหมดจากชีตกลางตอนเปิดหน้า มาผสานกับรายชื่อที่เคยจำ
+  // ไว้ในเครื่องนี้ (เผื่อบางชื่อยังไม่ทันซิงค์ขึ้นชีต) แล้ว render ใหม่
+  async function loadSalespeople(){
+    try{
+      const res = await fetch(LOGISTICS_ORIGIN + '/api/salespeople/list');
+      const json = await res.json();
+      if(!json.ok || !Array.isArray(json.data)) return;
+      const remoteNames = json.data.map(s => s.name).filter(Boolean);
+      const merged = remoteNames.slice();
+      salespeople.forEach(name => { if(!merged.includes(name)) merged.push(name); });
+      salespeople = merged;
+      renderSalespersonList();
+    } catch(e){
+      // best-effort only — silently ignore, local list still works
+    }
   }
 
 
@@ -1555,12 +1580,24 @@
     phone = (phone||'').trim();
     if(!name) return;
     const key = normPhone(phone) || normName(name);
-    if(customers.some(c => customerKey(c) === key)) return;
-    const entry = {name, phone};
-    localCustomers.push(entry);
-    save(LS_LOCAL_CUSTOMERS, localCustomers);
-    customers.push(entry);
-    renderCustomerList();
+    if(!customers.some(c => customerKey(c) === key)){
+      const entry = {name, phone};
+      localCustomers.push(entry);
+      save(LS_LOCAL_CUSTOMERS, localCustomers);
+      customers.push(entry);
+      renderCustomerList();
+    }
+    // ส่งขึ้น Google Sheet กลาง "ข้อมูลลูกค้า" แบบ best-effort ผ่านแอป
+    // Logistics ด้วย เพื่อให้ทุกคนในทีมเห็นรายชื่อเดียวกัน ไม่ใช่แค่เครื่อง
+    // ใครเครื่องมัน — ถ้าส่งไม่สำเร็จ (ออฟไลน์/เน็ตมีปัญหา) ก็ไม่เป็นไร ยังใช้
+    // งานต่อได้จากสำเนาที่เก็บในเครื่องนี้ (localCustomers ด้านบน)
+    if(phone){
+      fetch(LOGISTICS_ORIGIN + '/api/customers/upsert', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-quotation-token': LOGISTICS_BRIDGE_TOKEN },
+        body: JSON.stringify({ phone, name })
+      }).catch(() => {});
+    }
   }
 
   function renderCustomerList(){
@@ -1671,6 +1708,7 @@
 
   loadCustomers();
     renderSalespersonList();
+  loadSalespeople();
 
   async function sendToLogistics(q){
     const idx = quotations.findIndex(x => x.id === q.id);
