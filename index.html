@@ -1536,9 +1536,24 @@
   function normPhone(p){ return (p||'').replace(/\D/g, ''); }
   function normName(n){ return (n||'').trim().replace(/\s+/g, ' ').toLowerCase(); }
 
+  // ซ่อนรายชื่อลูกค้าบางรายการที่ไม่อยากให้โชว์ในลิสต์นี้ — จำไว้แค่ในเครื่องนี้
+  // เท่านั้น (localStorage) ไม่ได้ลบออกจาก Google Sheet จริง เพราะรายชื่อ
+  // ลูกค้าซิงค์มาจากชีตกลางที่ใช้ร่วมกับแอป Logistics กดลบที่นี่จะไม่กระทบคนอื่น
+  const LS_HIDDEN_CUSTOMERS = 'stk_hidden_customers';
+  let hiddenCustomers = load(LS_HIDDEN_CUSTOMERS, []);
+  function customerKey(c){ return normPhone(c.phone) || normName(c.name); }
+
   function renderCustomerList(){
+    const visibleCustomers = customers.filter(c => !hiddenCustomers.includes(customerKey(c)));
     const countEl = document.getElementById('customerSummaryCount');
-    if(countEl) countEl.textContent = customers.length ? '(' + customers.length + ' รายการ)' : '(ยังไม่มีข้อมูล)';
+    if(countEl){
+      countEl.innerHTML = visibleCustomers.length ? '(' + visibleCustomers.length + ' รายการ)' : '(ยังไม่มีข้อมูล)';
+      if(hiddenCustomers.length){
+        countEl.innerHTML += ' <a href="#" id="resetHiddenCustomersLink" style="margin-left:6px;">(ซ่อนไว้ ' + hiddenCustomers.length + ' รายการ — กดเพื่อแสดงทั้งหมด)</a>';
+        const resetLink = document.getElementById('resetHiddenCustomersLink');
+        if(resetLink) resetLink.onclick = (ev) => { ev.preventDefault(); hiddenCustomers = []; save(LS_HIDDEN_CUSTOMERS, hiddenCustomers); renderCustomerList(); };
+      }
+    }
 
     const phoneDL = document.getElementById('customerPhoneDatalist');
     const nameDL = document.getElementById('customerNameDatalist');
@@ -1552,19 +1567,27 @@
     const listEl = document.getElementById('customerChipList');
     listEl.innerHTML = '';
     const CHIP_LIMIT = 30;
-    customers.slice(0, CHIP_LIMIT).forEach(c => {
+    visibleCustomers.slice(0, CHIP_LIMIT).forEach(c => {
       const chip = document.createElement('div');
       chip.className = 'preset-chip';
-      chip.style.cursor = 'pointer';
-      chip.innerHTML = '<span>' + escapeHtml((c.name || '(ไม่ระบุชื่อ)') + (c.phone ? ' · ' + c.phone : '')) + '</span>';
-      chip.title = 'คลิกเพื่อเติมชื่อ+เบอร์โทร';
-      chip.onclick = () => applyCustomer(c);
+      const label = document.createElement('span');
+      label.style.cursor = 'pointer';
+      label.textContent = (c.name || '(ไม่ระบุชื่อ)') + (c.phone ? ' · ' + c.phone : '');
+      label.title = 'คลิกเพื่อเติมชื่อ+เบอร์โทร';
+      label.onclick = () => applyCustomer(c);
+      chip.appendChild(label);
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.textContent = '×';
+      rm.title = 'ซ่อนรายชื่อนี้ (เฉพาะเครื่องนี้ ไม่ลบจาก Sheet)';
+      rm.onclick = (ev) => { ev.stopPropagation(); hiddenCustomers.push(customerKey(c)); save(LS_HIDDEN_CUSTOMERS, hiddenCustomers); renderCustomerList(); };
+      chip.appendChild(rm);
       listEl.appendChild(chip);
     });
-    if(customers.length > CHIP_LIMIT){
+    if(visibleCustomers.length > CHIP_LIMIT){
       const more = document.createElement('div');
       more.style.cssText = 'font-size:12px;color:#888;margin-top:6px;';
-      more.textContent = 'และอีก ' + (customers.length - CHIP_LIMIT) + ' รายการ (พิมพ์ค้นหาในช่องเบอร์โทร/ชื่อลูกค้าด้านล่างได้เลย)';
+      more.textContent = 'และอีก ' + (visibleCustomers.length - CHIP_LIMIT) + ' รายการ (พิมพ์ค้นหาในช่องเบอร์โทร/ชื่อลูกค้าด้านล่างได้เลย)';
       listEl.appendChild(more);
     }
   }
