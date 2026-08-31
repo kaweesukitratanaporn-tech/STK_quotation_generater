@@ -166,6 +166,13 @@
   .os-cert .box{display:inline-block;width:13px;height:13px;border:1.4px solid #333;text-align:center;line-height:12px;font-size:10px;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   @page ossheet{ size: 185mm 145mm; margin: 8mm; }
   .paper.os-size{ page: ossheet; }
+/* order sheet — พิมพ์ทับกระดาษฟอร์ม S.T.K. ที่พิมพ์หัว/เส้นไว้ล่วงหน้าแล้ว
+   (A4 แนวตั้ง) ไม่มีกรอบ/เส้น/ข้อความหัวเรื่องเพราะกระดาษพิมพ์ไว้ให้แล้ว —
+   แต่ละ .f คือค่าที่ต้องยิงลงไปตรงตำแหน่งจริงบนฟอร์ม วัดพิกัดจากตัวอย่างจริงมา */
+.paper.os-preprint{position:relative;width:210mm;height:297mm;padding:0;background:#fff;color:#000;font-family:'Sarabun','Noto Sans Thai','Angsana New','Leelawadee UI',sans-serif;}
+.paper.os-preprint .f{position:absolute;white-space:pre-wrap;line-height:1.2;}
+@page ospreprint{ size: A4 portrait; margin: 0; }
+.paper.os-preprint{ page: ospreprint; }
   @media screen and (max-width:600px){
     main{padding:0 8px 60px;}
     .card{padding:12px;}
@@ -1364,6 +1371,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
         btn.textContent = orig;
       }
     }));
+    actions.appendChild(mkBtn('🖨️ พิมพ์ทับฟอร์ม', 'secondary', () => printOrderSheetPrePrinted(q)));
 
     if(q.orderStage === 'review' || q.orderStage === 'ready'){
       actions.appendChild(mkBtn('ข้อมูลจัดส่ง', '', () => openShippingModal(q)));
@@ -1936,7 +1944,76 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     );
   }
 
-  // สร้าง PDF ใบ Order Sheet ขนาดกระดาษจริง (210x148mm) จากการ์ดนี้ ดาวน์โหลด
+  // ---------- Order Sheet พิมพ์ทับกระดาษฟอร์ม S.T.K. ที่พิมพ์หัว/เส้นตาราง
+// ไว้ล่วงหน้าแล้ว — ตำแหน่งอ้างอิงจากไฟล์ตัวอย่างที่วัดพิกัดจริงมา
+// ตำแหน่งเป็น mm นับจากมุมบนซ้ายของกระดาษ A4 แนวตั้ง ไม่มีเส้น/กรอบ/
+// หัวเรื่องเพราะกระดาษพิมพ์ไว้ให้แล้ว ฟอร์มนี้รองรับรายการสินค้าได้ประมาณ 2-3
+// รายการก่อนจะเลยเส้น "ยอดรวม" ที่พิมพ์ไว้บนกระดาษ ถ้ารายการเยอะกว่านั้นตัวอักษร
+// จะทับเส้นด้านล่าง — ตัดรายการยี่ห้อ (โชติ/TG-Pro) ออกตามที่แจ้ง ให้ใส่ไว้
+// ใน note ของแต่ละรายการแทน ไม่พิมพ์ยอดรวม (เว้นว่างตามตัวอย่าง)
+const OS_PP_SHORT_MONTHS = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function fmtDateShortThaiOs(dstr){
+if(!dstr) return '-';
+const d = new Date(dstr + 'T00:00:00');
+if(isNaN(d)) return dstr;
+const be2 = (d.getFullYear() + 543) % 100;
+return d.getDate() + ' ' + OS_PP_SHORT_MONTHS[d.getMonth()] + ' ' + String(be2).padStart(2, '0');
+}
+function buildOrderSheetPrePrinted(q){
+const items = (q.items||[]).filter(it => it.name);
+const ROW_START = 72.7, ROW_H = 20.5;
+const itemsHtml = items.map((it, i) => {
+const top = ROW_START + i*ROW_H;
+const qty = Number(it.qty)||0;
+const qtyLabel = qty + (it.unit === 'kg' ? ' กก.' : ' ชิ้น');
+const desc = it.name + (it.note ? ('\n'+it.note) : '');
+return (
+'<div class="f" style="left:49.7mm;top:'+top+'mm;width:78mm;font-size:20pt;">'+escapeHtml(desc)+'</div>'+
+'<div class="f" style="left:129.5mm;top:'+top+'mm;font-size:20pt;">'+escapeHtml(String(qtyLabel))+'</div>'+
+'<div class="f" style="left:183.5mm;top:'+top+'mm;width:20mm;text-align:right;font-size:20pt;">'+fmt(Number(it.price)||0)+'</div>'
+);
+}).join('');
+const vatText = q.vatMode === 'novat' ? 'ไม่มี VAT (บวกเพิ่ม 4%)' : 'VAT+7%';
+const crLine = q.creditMode === 'cash' ? 'เงินสด' : ((q.creditDays||'-')+' วัน');
+const now = new Date();
+const p2 = n => String(n).padStart(2, '0');
+const nowStr = (now.getMonth()+1)+'/'+now.getDate()+'/'+now.getFullYear()+' '+p2(now.getHours())+':'+p2(now.getMinutes());
+return (
+'<div class="paper os-preprint">'+
+'<div class="f" style="left:44.7mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.customerName||'')+'</div>'+
+'<div class="f" style="left:158.4mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.poNumber||'')+'</div>'+
+'<div class="f" style="left:44.7mm;top:27.4mm;font-size:20pt;">'+fmtDateShortThaiOs(q.issueDate)+'</div>'+
+'<div class="f" style="left:172.3mm;top:27.4mm;font-size:20pt;">'+(q.deliveryDate ? fmtDateShortThaiOs(q.deliveryDate) : '-')+'</div>'+
+'<div class="f" style="left:44.7mm;top:37.3mm;width:110mm;font-size:20pt;">'+escapeHtml(q.deliveryPlace||'')+'</div>'+
+itemsHtml+
+'<div class="f" style="left:32.8mm;top:137.9mm;font-size:18pt;">'+escapeHtml(crLine)+'</div>'+
+'<div class="f" style="left:79.3mm;top:137.9mm;font-size:18pt;">'+escapeHtml(q.salesperson||'')+'</div>'+
+'<div class="f" style="left:49.7mm;top:156.7mm;font-size:20pt;">'+vatText+'</div>'+
+'<div class="f" style="left:145.5mm;top:158.1mm;font-size:16pt;">'+escapeHtml(q.salesperson||'')+' ออกออเดอร์<br>'+nowStr+'</div>'+
+'</div>'
+);
+}
+async function printOrderSheetPrePrinted(q){
+const printArea = document.getElementById('printArea');
+printArea.innerHTML = buildOrderSheetPrePrinted(q);
+try{
+if(document.fonts){
+await Promise.all([
+document.fonts.load("400 20pt Sarabun"),
+document.fonts.load("400 20pt 'Noto Sans Thai'"),
+document.fonts.load("400 18pt Sarabun"),
+document.fonts.load("400 16pt Sarabun")
+]);
+await document.fonts.ready;
+}
+}catch(e){}
+const custName = safeFileName(q.customerName) || 'ลูกค้า';
+document.title = 'OrderSheet_' + custName + '_' + fileDate(q.issueDate);
+window.addEventListener('afterprint', restoreTitle);
+window.print();
+}
+
+// สร้าง PDF ใบ Order Sheet ขนาดกระดาษจริง (210x148mm) จากการ์ดนี้ ดาวน์โหลด
   // ไว้ในเครื่อง แล้วอัปโหลดขึ้น Google Drive (App Data/วันที่/ชื่อลูกค้า/order/)
   // ผ่าน POD Drive Uploader โดยอัตโนมัติ — ชื่อไฟล์: ชื่อลูกค้า-วันที่
   async function generateOrderSheetPdf(q){
