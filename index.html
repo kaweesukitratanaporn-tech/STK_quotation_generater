@@ -169,7 +169,7 @@
 /* order sheet — พิมพ์ทับกระดาษฟอร์ม S.T.K. ที่พิมพ์หัว/เส้นไว้ล่วงหน้าแล้ว
    (A4 แนวตั้ง) ไม่มีกรอบ/เส้น/ข้อความหัวเรื่องเพราะกระดาษพิมพ์ไว้ให้แล้ว —
    แต่ละ .f คือค่าที่ต้องยิงลงไปตรงตำแหน่งจริงบนฟอร์ม วัดพิกัดจากตัวอย่างจริงมา */
-.paper.os-preprint{position:relative;width:210mm;height:297mm;padding:0;background:#fff;color:#000;font-family:'Sarabun','Noto Sans Thai','Angsana New','Leelawadee UI',sans-serif;}
+.paper.os-preprint{position:relative;width:210mm;height:297mm;padding:0;background:#fff;color:#000;font-family:'Angsana New','Cordia New','TH SarabunPSK','Sarabun','Noto Sans Thai','Leelawadee UI',sans-serif;}
 .paper.os-preprint .f{position:absolute;white-space:pre-wrap;line-height:1.2;}
 @page ospreprint{ size: A4 portrait; margin: 0; }
 .paper.os-preprint{ page: ospreprint; }
@@ -1965,7 +1965,7 @@ const ROW_START = 72.7, AREA_BOTTOM = 135, DESC_W = 78, FSIZE = 20;
 const availableH = AREA_BOTTOM - ROW_START;
 function measureMM(str, widthMM, sizePt){
 const div = document.createElement("div");
-div.style.cssText = "position:fixed;left:-99999px;top:0;width:"+widthMM+"mm;font-size:"+sizePt+"pt;font-family:'Sarabun','Noto Sans Thai','Angsana New','Leelawadee UI',sans-serif;white-space:pre-wrap;line-height:1.2;";
+div.style.cssText = "position:fixed;left:-99999px;top:0;width:"+widthMM+"mm;font-size:"+sizePt+"pt;font-family:'Angsana New','Cordia New','TH SarabunPSK','Sarabun','Noto Sans Thai','Leelawadee UI',sans-serif;white-space:pre-wrap;line-height:1.2;";
 div.textContent = str;
 document.body.appendChild(div);
 const h = div.getBoundingClientRect().height;
