@@ -1998,14 +1998,14 @@ top += rowH[idx];
 const qty = Number(it.qty)||0;
 const isKg = it.unit === "kg";
 // จำนวน(ชิ้น) กับ น้ำหนัก(กก.) เป็นคนละช่องบนฟอร์มจริง — ลงตามหน่วยของรายการนั้น
-const qtyColLeft = isKg ? "147.5mm" : "125mm";
+const qtyColLeft = isKg ? "145.5mm" : "123mm";
 const qtyText = isKg ? (qty + " กก.") : (qty + " ชิ้น");
 const priceUnit = isKg ? " /กก." : " /ชิ้น";
 const desc = descOf(it);
 return (
-'<div class="f" style="left:45.2mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(desc)+'</div>'+
+'<div class="f" style="left:43.2mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(desc)+'</div>'+
 '<div class="f" style="left:'+qtyColLeft+';top:'+t+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(String(qtyText))+'</div>'+
-'<div class="f" style="left:179mm;top:'+t+'mm;width:22mm;text-align:right;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'<span style="font-size:'+Math.round(FSIZE*0.55)+'pt;">'+priceUnit+'</span></div>'
+'<div class="f" style="left:177mm;top:'+t+'mm;width:22mm;text-align:right;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'<span style="font-size:'+Math.round(FSIZE*0.55)+'pt;">'+priceUnit+'</span></div>'
 );
 }).join("");
 const isLast = pageI === pages.length - 1;
@@ -2020,8 +2020,8 @@ return (
 itemsHtml+
 '<div class="f" style="left:33.8mm;top:138.4mm;font-size:18pt;">'+escapeHtml(crLine)+'</div>'+
 '<div class="f" style="left:80.3mm;top:138.4mm;font-size:18pt;">'+escapeHtml(q.salesperson||"")+'</div>'+
-'<div class="f" style="left:55mm;top:145.5mm;font-size:18pt;">'+certMark+'</div>'+
-'<div class="f" style="left:38.7mm;top:153.2mm;font-size:20pt;">'+vatText+'</div>'+
+'<div class="f" style="left:55mm;top:147.5mm;font-size:18pt;">'+certMark+'</div>'+
+'<div class="f" style="left:34.7mm;top:153.2mm;font-size:20pt;">'+vatText+'</div>'+
 '</div>'
 );
 });
