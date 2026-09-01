@@ -1995,12 +1995,16 @@ const it = allItems[idx];
 const t = top;
 top += rowH[idx];
 const qty = Number(it.qty)||0;
-const qtyLabel = qty + (it.unit === "kg" ? " กก." : " ชิ้น");
+const isKg = it.unit === "kg";
+// จำนวน(ชิ้น) กับ น้ำหนัก(กก.) เป็นคนละช่องบนฟอร์มจริง — ลงตามหน่วยของรายการนั้น
+const qtyColLeft = isKg ? "152mm" : "129.5mm";
+const qtyText = isKg ? (qty + " กก.") : (qty + " ชิ้น");
+const priceUnit = isKg ? " /กก." : " /ชิ้น";
 const desc = descOf(it);
 return (
 '<div class="f" style="left:49.7mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(desc)+'</div>'+
-'<div class="f" style="left:129.5mm;top:'+t+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(String(qtyLabel))+'</div>'+
-'<div class="f" style="left:183.5mm;top:'+t+'mm;width:20mm;text-align:right;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'</div>'
+'<div class="f" style="left:'+qtyColLeft+';top:'+t+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(String(qtyText))+'</div>'+
+'<div class="f" style="left:183.5mm;top:'+t+'mm;width:22mm;text-align:right;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'<span style="font-size:'+Math.round(FSIZE*0.55)+'pt;">'+priceUnit+'</span></div>'
 );
 }).join("");
 const isLast = pageI === pages.length - 1;
