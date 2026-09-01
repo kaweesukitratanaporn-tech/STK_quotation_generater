@@ -1999,8 +1999,8 @@ const qty = Number(it.qty)||0;
 const isKg = it.unit === "kg";
 // จำนวน(ชิ้น) กับ น้ำหนัก(กก.) เป็นคนละช่องบนฟอร์มจริง — ลงตามหน่วยของรายการนั้น
 const qtyColLeft = isKg ? "145.5mm" : "123mm";
-const qtyText = isKg ? (qty + " กก.") : (qty + " ชิ้น");
-const priceUnit = isKg ? " /กก." : " /ชิ้น";
+const qtyText = isKg ? (qty + " กก.") : (qty + " pc.");
+const priceUnit = isKg ? " /กก." : " /pc.";
 const desc = descOf(it);
 return (
 '<div class="f" style="left:43.2mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(desc)+'</div>'+
