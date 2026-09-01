@@ -2011,16 +2011,15 @@ const isLast = pageI === pages.length - 1;
 const breakStyle = isLast ? "" : "page-break-after:always;break-after:page;";
 return (
 '<div class="paper os-preprint" style="'+breakStyle+'">'+
-'<div class="f" style="left:44.7mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.customerName||"")+'</div>'+
+'<div class="f" style="left:46.7mm;top:15.4mm;font-size:20pt;">'+escapeHtml(q.customerName||"")+'</div>'+
 '<div class="f" style="left:158.4mm;top:17.4mm;font-size:20pt;">'+escapeHtml(q.poNumber||"")+'</div>'+
-'<div class="f" style="left:44.7mm;top:27.4mm;font-size:20pt;">'+fmtDateShortThaiOs(q.issueDate)+'</div>'+
-'<div class="f" style="left:172.3mm;top:27.4mm;font-size:20pt;">'+(q.deliveryDate ? fmtDateShortThaiOs(q.deliveryDate) : "-")+'</div>'+
-'<div class="f" style="left:44.7mm;top:37.3mm;width:110mm;font-size:20pt;">'+escapeHtml(q.deliveryPlace||"")+'</div>'+
+'<div class="f" style="left:46.7mm;top:25.4mm;font-size:20pt;">'+fmtDateShortThaiOs(q.issueDate)+'</div>'+
+'<div class="f" style="left:172.3mm;top:25.4mm;font-size:20pt;">'+(q.deliveryDate ? fmtDateShortThaiOs(q.deliveryDate) : "-")+'</div>'+
+'<div class="f" style="left:46.7mm;top:35.3mm;width:110mm;font-size:20pt;">'+escapeHtml(q.deliveryPlace||"")+'</div>'+
 itemsHtml+
-'<div class="f" style="left:32.8mm;top:137.9mm;font-size:18pt;">'+escapeHtml(crLine)+'</div>'+
-'<div class="f" style="left:79.3mm;top:137.9mm;font-size:18pt;">'+escapeHtml(q.salesperson||"")+'</div>'+
-'<div class="f" style="left:49.7mm;top:156.7mm;font-size:20pt;">'+vatText+'</div>'+
-'<div class="f" style="left:145.5mm;top:158.1mm;font-size:16pt;">'+escapeHtml(q.salesperson||"")+' ออกออเดอร์<br>'+nowStr+'</div>'+
+'<div class="f" style="left:34.8mm;top:137.9mm;font-size:18pt;">'+escapeHtml(crLine)+'</div>'+
+'<div class="f" style="left:81.3mm;top:137.9mm;font-size:18pt;">'+escapeHtml(q.salesperson||"")+'</div>'+
+'<div class="f" style="left:49.7mm;top:154.7mm;font-size:20pt;">'+vatText+'</div>'+
 '</div>'
 );
 });
