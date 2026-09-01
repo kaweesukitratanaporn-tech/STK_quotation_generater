@@ -1961,7 +1961,7 @@ return d.getDate() + ' ' + OS_PP_SHORT_MONTHS[d.getMonth()] + ' ' + String(be2).
 }
 function buildOrderSheetPrePrinted(q){
 const allItems = (q.items||[]).filter(it => it.name);
-const ROW_START = 65.7, AREA_BOTTOM = 136.5, DESC_W = 78, FSIZE = 20;
+const ROW_START = 64.7, AREA_BOTTOM = 135.5, DESC_W = 78, FSIZE = 20;
 const availableH = AREA_BOTTOM - ROW_START;
 function measureMM(str, widthMM, sizePt){
 const div = document.createElement("div");
@@ -1998,30 +1998,30 @@ top += rowH[idx];
 const qty = Number(it.qty)||0;
 const isKg = it.unit === "kg";
 // จำนวน(ชิ้น) กับ น้ำหนัก(กก.) เป็นคนละช่องบนฟอร์มจริง — ลงตามหน่วยของรายการนั้น
-const qtyColLeft = isKg ? "150.5mm" : "128mm";
+const qtyColLeft = isKg ? "147.5mm" : "125mm";
 const qtyText = isKg ? (qty + " กก.") : (qty + " ชิ้น");
 const priceUnit = isKg ? " /กก." : " /ชิ้น";
 const desc = descOf(it);
 return (
-'<div class="f" style="left:48.2mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(desc)+'</div>'+
+'<div class="f" style="left:45.2mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(desc)+'</div>'+
 '<div class="f" style="left:'+qtyColLeft+';top:'+t+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(String(qtyText))+'</div>'+
-'<div class="f" style="left:182mm;top:'+t+'mm;width:22mm;text-align:right;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'<span style="font-size:'+Math.round(FSIZE*0.55)+'pt;">'+priceUnit+'</span></div>'
+'<div class="f" style="left:179mm;top:'+t+'mm;width:22mm;text-align:right;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'<span style="font-size:'+Math.round(FSIZE*0.55)+'pt;">'+priceUnit+'</span></div>'
 );
 }).join("");
 const isLast = pageI === pages.length - 1;
 const breakStyle = isLast ? "" : "page-break-after:always;break-after:page;";
 return (
 '<div class="paper os-preprint" style="'+breakStyle+'">'+
-'<div class="f" style="left:46.7mm;top:16.9mm;font-size:20pt;">'+escapeHtml(q.customerName||"")+'</div>'+
-'<div class="f" style="left:158.4mm;top:18.9mm;font-size:20pt;">'+escapeHtml(q.poNumber||"")+'</div>'+
-'<div class="f" style="left:46.7mm;top:26.9mm;font-size:20pt;">'+fmtDateShortThaiOs(q.issueDate)+'</div>'+
-'<div class="f" style="left:172.3mm;top:26.9mm;font-size:20pt;">'+(q.deliveryDate ? fmtDateShortThaiOs(q.deliveryDate) : "-")+'</div>'+
-'<div class="f" style="left:46.7mm;top:36.8mm;width:110mm;font-size:20pt;">'+escapeHtml(q.deliveryPlace||"")+'</div>'+
+'<div class="f" style="left:45.7mm;top:15.9mm;font-size:20pt;">'+escapeHtml(q.customerName||"")+'</div>'+
+'<div class="f" style="left:157.4mm;top:17.9mm;font-size:20pt;">'+escapeHtml(q.poNumber||"")+'</div>'+
+'<div class="f" style="left:45.7mm;top:25.9mm;font-size:20pt;">'+fmtDateShortThaiOs(q.issueDate)+'</div>'+
+'<div class="f" style="left:171.3mm;top:25.9mm;font-size:20pt;">'+(q.deliveryDate ? fmtDateShortThaiOs(q.deliveryDate) : "-")+'</div>'+
+'<div class="f" style="left:45.7mm;top:35.8mm;width:110mm;font-size:20pt;">'+escapeHtml(q.deliveryPlace||"")+'</div>'+
 itemsHtml+
-'<div class="f" style="left:34.8mm;top:139.4mm;font-size:18pt;">'+escapeHtml(crLine)+'</div>'+
-'<div class="f" style="left:81.3mm;top:139.4mm;font-size:18pt;">'+escapeHtml(q.salesperson||"")+'</div>'+
-'<div class="f" style="left:56mm;top:146.5mm;font-size:18pt;">'+certMark+'</div>'+
-'<div class="f" style="left:43.7mm;top:154.2mm;font-size:20pt;">'+vatText+'</div>'+
+'<div class="f" style="left:33.8mm;top:138.4mm;font-size:18pt;">'+escapeHtml(crLine)+'</div>'+
+'<div class="f" style="left:80.3mm;top:138.4mm;font-size:18pt;">'+escapeHtml(q.salesperson||"")+'</div>'+
+'<div class="f" style="left:55mm;top:145.5mm;font-size:18pt;">'+certMark+'</div>'+
+'<div class="f" style="left:38.7mm;top:153.2mm;font-size:20pt;">'+vatText+'</div>'+
 '</div>'
 );
 });
