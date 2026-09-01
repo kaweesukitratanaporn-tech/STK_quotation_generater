@@ -1984,6 +1984,7 @@ cur.push(idx); curH += h;
 }
 if(cur.length || allItems.length === 0) pages.push(cur);
 const vatText = q.vatMode === "novat" ? "ไม่มี VAT (บวกเพิ่ม 4%)" : "VAT+7%";
+const certMark = q.certification ? "✓" : "";
 const crLine = q.creditMode === "cash" ? "เงินสด" : ((q.creditDays||"-")+" วัน");
 const now = new Date();
 const p2 = n => String(n).padStart(2, "0");
@@ -2019,6 +2020,7 @@ return (
 itemsHtml+
 '<div class="f" style="left:34.8mm;top:137.9mm;font-size:18pt;">'+escapeHtml(crLine)+'</div>'+
 '<div class="f" style="left:81.3mm;top:137.9mm;font-size:18pt;">'+escapeHtml(q.salesperson||"")+'</div>'+
+'<div class="f" style="left:56mm;top:144mm;font-size:18pt;">'+certMark+'</div>'+
 '<div class="f" style="left:46.7mm;top:152.7mm;font-size:20pt;">'+vatText+'</div>'+
 '</div>'
 );
