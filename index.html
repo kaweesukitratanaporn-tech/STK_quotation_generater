@@ -313,7 +313,7 @@
     <h2>7. ภาษีมูลค่าเพิ่ม</h2>
     <div class="radio-group">
       <label><input type="radio" name="vatMode" value="vat" checked> VAT +7% (มีใบกำกับภาษี)</label>
-      <label><input type="radio" name="vatMode" value="novat"> ไม่มี VAT (บวกเพิ่ม +4%)</label>
+      <label><input type="radio" name="vatMode" value="novat"> NO-VAT</label>
     </div>
   </div>
 
@@ -1988,7 +1988,7 @@ if(cur.length && curH + h > availableH){ pages.push(cur); cur = []; curH = 0; }
 cur.push(idx); curH += h;
 }
 if(cur.length || allItems.length === 0) pages.push(cur);
-const vatText = q.vatMode === "novat" ? "ไม่มี VAT (บวกเพิ่ม 4%)" : "VAT+7%";
+const vatText = q.vatMode === "novat" ? "NO-VAT" : "VAT+7%";
 const certMark = q.certification ? "✓" : "";
 const crLine = q.creditMode === "cash" ? "เงินสด" : ((q.creditDays||"-")+" วัน");
 const now = new Date();
