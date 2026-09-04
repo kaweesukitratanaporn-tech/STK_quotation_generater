@@ -1759,10 +1759,12 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
       alert('กรุณากรอกเบอร์โทรลูกค้าก่อนส่งไปแอปขนส่ง (แก้ไขได้ที่ปุ่ม "แก้ไข" หรือ "ข้อมูลจัดส่ง")');
       return;
     }
-    // ออเดอร์ "รับเอง" ไม่มีที่อยู่/แผนที่ — บังคับกรอกเฉพาะออเดอร์จัดส่งเท่านั้น
+    // ที่อยู่จัดส่ง/ลิงก์ Google Map ไม่บังคับกรอกแล้ว (ยังไม่รู้รายละเอียด
+    // ตอนออกใบเสนอราคาก็ส่งไปก่อนได้ ไปเติมทีหลังในแอป Logistics) — แค่เตือน
+    // เฉยๆ เผื่อลืมจริงๆ ไม่บล็อกการส่ง
     if(r.deliveryMethod !== 'pickup' && (!r.address.trim() || !r.mapLink.trim())){
-      alert('กรุณากรอกที่อยู่จัดส่งและลิงก์ Google Map ในหน้า "ข้อมูลจัดส่ง" ให้ครบก่อนส่ง');
-      return;
+      const proceed = confirm('ยังไม่ได้กรอกที่อยู่จัดส่งและ/หรือลิงก์ Google Map — จะส่งไปแอปขนส่งเลยไหม? (เติมทีหลังได้)');
+      if(!proceed) return;
     }
     try{
       const res = await fetch(LOGISTICS_API_URL, {
