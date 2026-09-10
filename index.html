@@ -1359,19 +1359,8 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
 
     actions.appendChild(mkBtn('ดูตัวอย่าง / พิมพ์', 'secondary', () => openPreview(q)));
     actions.appendChild(mkBtn('แก้ไข', 'secondary', () => loadForEdit(q)));
-    actions.appendChild(mkBtn('🖨️ ออก order', 'secondary', async (ev) => {
-      const btn = ev.currentTarget;
-      const orig = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = 'กำลังสร้าง PDF...';
-      try{
-        await generateOrderSheetPdf(q);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = orig;
-      }
-    }));
-    actions.appendChild(mkBtn('🖨️ พิมพ์ทับฟอร์ม', 'secondary', () => printOrderSheetPrePrinted(q)));
+    
+    
 
     if(q.orderStage === 'review' || q.orderStage === 'ready'){
       actions.appendChild(mkBtn('ข้อมูลจัดส่ง', '', () => openShippingModal(q)));
