@@ -1359,8 +1359,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
 
     actions.appendChild(mkBtn('ดูตัวอย่าง / พิมพ์', 'secondary', () => openPreview(q)));
     actions.appendChild(mkBtn('แก้ไข', 'secondary', () => loadForEdit(q)));
-    
-    
+    actions.appendChild(mkBtn('🖨️ พิมพ์ทับฟอร์ม', 'secondary', () => printOrderSheetPrePrinted(q)));
 
     if(q.orderStage === 'review' || q.orderStage === 'ready'){
       actions.appendChild(mkBtn('ข้อมูลจัดส่ง', '', () => openShippingModal(q)));
