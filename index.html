@@ -1084,7 +1084,7 @@
     const vatMode = document.querySelector('input[name=vatMode]:checked').value;
     let vatLabel, vatAmt;
     if(vatMode === 'vat'){ vatLabel = 'VAT+7%'; vatAmt = afterDiscount * 0.07; }
-    else { vatLabel = 'NOVAT+4%'; vatAmt = afterDiscount * 0.04; }
+    else { vatLabel = 'NOVAT+4%'; vatAmt = 0; }
     const grand = afterDiscount + vatAmt;
     return {subtotal, creditMode, discountPct, discountAmt, afterDiscount, vatMode, vatLabel, vatAmt, grand};
   }
@@ -1096,7 +1096,7 @@
       rows += row('เงินสดลด'+t.discountPct+'%', '-'+fmt(t.discountAmt));
     }
     rows += row('Total', fmt(t.afterDiscount));
-    rows += row(t.vatLabel, fmt(t.vatAmt));
+    if(t.vatAmt){ rows += row(t.vatLabel, fmt(t.vatAmt)); }
     rows += '<tr class="grand">'+row('Sub Total', fmt(t.grand), true)+'</tr>';
     tbl.innerHTML = rows;
     if(typeof updateSaveButtonLabel === 'function') updateSaveButtonLabel();
@@ -1389,7 +1389,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
       }
     }
     if(q.orderStage === 'ready'){
-      actions.appendChild(mkBtn('🚚 ส่งไปแอปขนส่ง (Admin)', 'success', () => sendToLogisticsAsAdmin(q)));
+      
       actions.appendChild(mkBtn('ย้อนกลับไปรอดำเนินการ', 'secondary', () => {
         const idx = quotations.findIndex(x => x.id === q.id);
         if(idx > -1){ quotations[idx].orderStage = 'review'; quotations[idx].approved = false; saveAndPush(quotations[idx]); renderList(); }
@@ -1425,7 +1425,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     const afterDiscount = subtotal - discountAmt;
     let vatLabel, vatAmt;
     if(q.vatMode==='vat'){ vatLabel='VAT+7%'; vatAmt = afterDiscount*0.07; }
-    else { vatLabel='NOVAT+4%'; vatAmt = afterDiscount*0.04; }
+    else { vatLabel='NOVAT+4%'; vatAmt = 0; }
     const grand = afterDiscount + vatAmt;
     return {subtotal, discountPct, discountAmt, afterDiscount, vatLabel, vatAmt, grand};
   }
@@ -1872,7 +1872,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
       totalsRows += totRow('เงินสดลด'+t.discountPct+'%', '-'+fmt(t.discountAmt));
     }
     totalsRows += totRow('Total', fmt(t.afterDiscount));
-    totalsRows += totRow(t.vatLabel, fmt(t.vatAmt));
+    if(t.vatAmt){ totalsRows += totRow(t.vatLabel, fmt(t.vatAmt)); }
     totalsRows += '<tr class="grandrow"><td colspan="4">Sub Total</td><td>'+fmt(t.grand)+'</td></tr>';
     return (
       '<div class="paper">'+
