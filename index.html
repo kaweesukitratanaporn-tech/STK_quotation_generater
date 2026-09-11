@@ -306,6 +306,10 @@
     </div>
     <div class="row-actions">
       <button class="btn secondary small" id="addItemBtn" type="button">+ เพิ่มแถวสินค้า</button>
+      <button class="btn secondary small" id="addPrintNoteBtn" type="button">+ เพิ่มหมายเหตุ (พิมพ์ทับฟอร์ม)</button>
+    </div>
+    <div id="printNoteWrap" style="display:none;margin-top:8px;">
+      <input type="text" id="printNoteInput" style="width:100%;padding:8px 10px;border:1px solid #ccc;border-radius:6px;font-size:14px;font-family:inherit;" placeholder="หมายเหตุที่จะพิมพ์ทับฟอร์ม (แสดงทุกหน้า ต่อจากรายการสินค้า)">
     </div>
   </div>
 
@@ -1044,6 +1048,11 @@
     renderTotals();
   }
   document.getElementById('addItemBtn').onclick = () => addItemRow();
+  document.getElementById('addPrintNoteBtn').onclick = () => {
+    document.getElementById('printNoteWrap').style.display = 'block';
+    document.getElementById('addPrintNoteBtn').style.display = 'none';
+    document.getElementById('printNoteInput').focus();
+  };
 
   // ---------- credit / vat toggles ----------
   document.querySelectorAll('input[name=creditMode]').forEach(r => r.onchange = () => {
@@ -1127,6 +1136,7 @@
       deliveryDate: document.getElementById('deliveryDate').value,
       deliveryOption: document.querySelector('input[name=deliveryOption]:checked').value,
       note: document.getElementById('note').value.trim(),
+      printNote: document.getElementById('printNoteInput').value.trim(),
       signer: document.getElementById('signer').value.trim(),
       poAttachment: poAttachmentCurrent,
             poNumber: document.getElementById('poNumber').value.trim(),
@@ -1248,6 +1258,9 @@
     document.getElementById('deliveryDate').value='';
     toggleDeliveryFields();
     document.getElementById('note').value='';
+    document.getElementById('printNoteInput').value='';
+    document.getElementById('printNoteWrap').style.display='none';
+    document.getElementById('addPrintNoteBtn').style.display='';
     document.getElementById('signer').value='';
     document.getElementById('issueDate').valueAsDate = new Date();
     poAttachmentCurrent = null;
@@ -1280,6 +1293,8 @@ document.getElementById('salespersonEmail').value = '';
     document.querySelector('input[name=deliveryOption][value="'+(q.deliveryOption || 'delivery')+'"]').checked = true;
     toggleDeliveryFields();
     document.getElementById('note').value = q.note || '';
+    document.getElementById('printNoteInput').value = q.printNote || '';
+    if(q.printNote){ document.getElementById('printNoteWrap').style.display='block'; document.getElementById('addPrintNoteBtn').style.display='none'; } else { document.getElementById('printNoteWrap').style.display='none'; document.getElementById('addPrintNoteBtn').style.display=''; }
     document.getElementById('signer').value = q.signer || '';
     poAttachmentCurrent = q.poAttachment || null;
     document.getElementById('poAttachmentInput').value = '';
@@ -1956,7 +1971,9 @@ return d.getDate() + ' ' + OS_PP_SHORT_MONTHS[d.getMonth()] + ' ' + String(be2).
 function buildOrderSheetPrePrinted(q){
 const allItems = (q.items||[]).filter(it => it.name);
 const ROW_START = 64.7, AREA_BOTTOM = 135.5, DESC_W = 78, FSIZE = 20;
-const availableH = AREA_BOTTOM - ROW_START;
+const noteText = (q.printNote||'').trim();
+const noteH = noteText ? Math.max(measureMM(noteText, DESC_W, FSIZE), FSIZE*0.3528*1.25) + 1.8 : 0;
+const availableH = AREA_BOTTOM - ROW_START - noteH;
 function measureMM(str, widthMM, sizePt){
 const div = document.createElement("div");
 div.style.cssText = "position:fixed;left:-99999px;top:0;width:"+widthMM+"mm;font-size:"+sizePt+"pt;font-family:'Angsana New','Cordia New','TH SarabunPSK','Sarabun','Noto Sans Thai','Leelawadee UI',sans-serif;white-space:pre-wrap;line-height:1.25;";
@@ -2003,6 +2020,7 @@ return (
 '<div class="f" style="left:177mm;top:'+t+'mm;width:22mm;text-align:right;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'<span style="font-size:'+Math.round(FSIZE*0.55)+'pt;">'+priceUnit+'</span></div>'
 );
 }).join("");
+const noteHtml = noteText ? ('<div class="f" style="left:43.2mm;top:'+top+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(noteText)+'</div>') : '';
 const isLast = pageI === pages.length - 1;
 const breakStyle = isLast ? "" : "page-break-after:always;break-after:page;";
 return (
@@ -2012,7 +2030,7 @@ return (
 '<div class="f" style="left:45.7mm;top:26.9mm;font-size:20pt;">'+fmtDateShortThaiOs(q.issueDate)+'</div>'+
 '<div class="f" style="left:171.3mm;top:26.9mm;font-size:20pt;">'+(q.deliveryDate ? fmtDateShortThaiOs(q.deliveryDate) : "-")+'</div>'+
 '<div class="f" style="left:45.7mm;top:36.8mm;width:110mm;font-size:20pt;">'+escapeHtml(q.deliveryPlace||"")+'</div>'+
-itemsHtml+
+itemsHtml+noteHtml+
 '<div class="f" style="left:24.4mm;top:138.4mm;font-size:18pt;">'+escapeHtml(crLine)+'</div>'+
 '<div class="f" style="left:80.3mm;top:138.4mm;font-size:18pt;">'+escapeHtml(q.salesperson||"")+'</div>'+
 '<div class="f" style="left:55mm;top:154.5mm;font-size:18pt;">'+certMark+'</div>'+
