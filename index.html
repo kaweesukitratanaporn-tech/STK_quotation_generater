@@ -1707,8 +1707,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
       const json = await res.json();
       if(!json.ok || !Array.isArray(json.data)) return;
       const sheetKeys = new Set(json.data.map(customerKey));
-      const localOnly = localCustomers.filter(c => !sheetKeys.has(customerKey(c)));
-      customers = json.data.concat(localOnly);
+      customers = json.data; // ซิงค์ = แทนที่ทั้งหมดด้วยข้อมูลจาก Sheet (ไม่ผสาน local-only เพื่อให้รายการที่ลบใน Sheet หายไปจริง)
       renderCustomerList();
       if(statusEl) statusEl.textContent = 'ซิงค์สำเร็จ ' + customers.length + ' รายการ (อัปเดตล่าสุด ' + new Date().toLocaleTimeString('th-TH') + ')';
     } catch(e){
