@@ -224,6 +224,9 @@
 
     <details class="preset-box" id="customerBox">
       <summary style="cursor:pointer;font-size:13px;color:#555;font-weight:600;">รายชื่อลูกค้า — ซิงค์จาก Google Sheet <span id="customerSummaryCount" style="font-weight:400;color:#888;"></span></summary>
+      <div style="margin-top:8px;">
+        <button class="btn secondary small" id="syncCustomersBtn" type="button">🔄 ซิงค์ข้อมูลลูกค้า</button>
+      </div>
       <div class="po-preview" id="customerSyncStatus" style="margin-top:8px;"></div>
       <div class="preset-list" id="customerChipList"></div>
     </details>
@@ -1745,6 +1748,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
   });
 
   loadCustomers();
+  document.getElementById('syncCustomersBtn').onclick = () => loadCustomers();
     renderSalespersonList();
   loadSalespeople();
 
