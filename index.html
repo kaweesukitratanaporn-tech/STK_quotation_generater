@@ -1973,7 +1973,7 @@ return d.getDate() + ' ' + OS_PP_SHORT_MONTHS[d.getMonth()] + ' ' + String(be2).
 }
 function buildOrderSheetPrePrinted(q){
 const allItems = (q.items||[]).filter(it => it.name);
-const ROW_START = 64.7, AREA_BOTTOM = 135.5, DESC_W = 78, FSIZE = 20;
+const ROW_START = 64.7, AREA_BOTTOM = 146.1, DESC_W = 78, FSIZE = 20;
 const noteText = (q.printNote||'').trim();
 const noteH = noteText ? Math.max(measureMM(noteText, DESC_W, FSIZE), FSIZE*0.3528*1.25) + 1.8 : 0;
 const availableH = AREA_BOTTOM - ROW_START - noteH;
