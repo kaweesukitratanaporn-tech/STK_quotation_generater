@@ -133,17 +133,15 @@
   .infoline b{margin-right:4px;}
   table.doc{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:10px;font-size:14px;}
   table.doc td.spec{overflow-wrap:break-word;word-break:break-word;line-height:1.5;}
-  table.doc th{padding:6px 10px;text-align:center;font-size:13px;background:linear-gradient(#333,#333) top/100% 1px no-repeat,linear-gradient(#333,#333) bottom/100% 1px no-repeat,linear-gradient(#333,#333) left/1px 100% no-repeat,#f1f1f1;}
-  table.doc th:last-child{background:linear-gradient(#333,#333) top/100% 1px no-repeat,linear-gradient(#333,#333) bottom/100% 1px no-repeat,linear-gradient(#333,#333) left/1px 100% no-repeat,linear-gradient(#333,#333) right/1px 100% no-repeat,#f1f1f1;}
-  table.doc td{padding:5px 10px;background:linear-gradient(#333,#333) left/1px 100% no-repeat;}
-  table.doc td:last-child{background:linear-gradient(#333,#333) left/1px 100% no-repeat,linear-gradient(#333,#333) right/1px 100% no-repeat;}
+  table.doc th{padding:6px 10px;text-align:center;font-size:13px;background:#f1f1f1;border-top:thin solid #333;border-bottom:thin solid #333;border-left:thin solid #333;}
+  table.doc th:last-child{border-right:thin solid #333;}
+  table.doc td{padding:5px 10px;border-left:thin solid #333;}
+  table.doc td:last-child{border-right:thin solid #333;}
   table.doc td.num{text-align:right;}
   table.doc td.subrow{color:#666;font-size:11px;padding:0 10px;}
-  table.doc tr.totstart td{background:linear-gradient(#333,#333) top/100% 1px no-repeat,linear-gradient(#333,#333) left/1px 100% no-repeat;}
-  table.doc tr.totstart td:last-child{background:linear-gradient(#333,#333) top/100% 1px no-repeat,linear-gradient(#333,#333) left/1px 100% no-repeat,linear-gradient(#333,#333) right/1px 100% no-repeat;}
+  table.doc tr.totstart td{border-top:thin solid #333;}
   table.doc tr.totrow td{text-align:right;color:#ff0000;font-weight:600;padding:5px 10px;}
-  table.doc tr.grandrow td{border-bottom:3px double #333;text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;background:linear-gradient(#333,#333) top/100% 1px no-repeat,linear-gradient(#333,#333) left/1px 100% no-repeat;}
-  table.doc tr.grandrow td:last-child{background:linear-gradient(#333,#333) top/100% 1px no-repeat,linear-gradient(#333,#333) left/1px 100% no-repeat,linear-gradient(#333,#333) right/1px 100% no-repeat;}
+  table.doc tr.grandrow td{border-top:thin solid #333;border-bottom:3px double #333;text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;}
   .below-table{margin-top:12px;font-size:15px;line-height:2;}
   .below-table .dotted{display:inline-block;min-width:220px;padding-bottom:2px;background-image:linear-gradient(to right,#333 20%,transparent 0%);background-position:bottom;background-size:5px 1px;background-repeat:repeat-x;}
   .foot-note{border-top:1px solid #333;margin-top:14px;padding-top:8px;font-size:14px;line-height:1.6;}
