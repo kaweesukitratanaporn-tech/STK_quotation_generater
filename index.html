@@ -1973,9 +1973,9 @@ return d.getDate() + ' ' + OS_PP_SHORT_MONTHS[d.getMonth()] + ' ' + String(be2).
 }
 function buildOrderSheetPrePrinted(q){
 const allItems = (q.items||[]).filter(it => it.name);
-const ROW_START = 64.7, AREA_BOTTOM = 146.1, DESC_W = 78, FSIZE = 20;
+const ROW_START = 64.7, AREA_BOTTOM = 140.8, DESC_W = 78, FSIZE = 20;
 const noteText = (q.printNote||'').trim();
-const noteH = noteText ? Math.max(measureMM(noteText, DESC_W, FSIZE), FSIZE*0.3528*1.25) + 1.8 : 0;
+const noteH = noteText ? Math.max(measureMM(noteText, DESC_W, FSIZE), FSIZE*0.3528*1.25) + 1.9 : 0;
 const availableH = AREA_BOTTOM - ROW_START - noteH;
 function measureMM(str, widthMM, sizePt){
 const div = document.createElement("div");
@@ -1987,7 +1987,7 @@ document.body.removeChild(div);
 return h * 25.4/96;
 }
 const descOf = it => it.name + (it.note ? ("\n"+it.note) : "");
-const rowH = allItems.map(it => Math.max(measureMM(descOf(it), DESC_W, FSIZE), FSIZE*0.3528*1.25) + 1.8);
+const rowH = allItems.map(it => Math.max(measureMM(descOf(it), DESC_W, FSIZE), FSIZE*0.3528*1.25) + 1.9);
 // แบ่งสินค้าออกเป็นหลายหน้า ถ้ารายการเยอะเกินพื้นที่ของฟอร์มเดิม (แผ่นละหน้า ใช้ขนาดตัวอักษรเท่าฟอร์มเสมอ)
 const pages = [];
 let cur = [], curH = 0;
