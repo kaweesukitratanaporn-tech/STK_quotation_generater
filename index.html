@@ -354,6 +354,10 @@
         <label>ส่งที่ไหน</label>
         <input type="text" id="deliveryPlace" placeholder="สถานที่จัดส่ง">
       </div>
+      <div class="field hidden" id="pickupPersonField">
+        <label>ใครมารับเอง (ถ้ามี)</label>
+        <input type="text" id="pickupPersonName" placeholder="ชื่อผู้มารับ">
+      </div>
       <div class="field" id="deliveryDateField">
         <label>วันที่ส่ง</label>
         <input type="date" id="deliveryDate">
@@ -1074,12 +1078,16 @@
     const dateField = document.getElementById('deliveryDateField');
     const placeInput = document.getElementById('deliveryPlace');
     const dateInput = document.getElementById('deliveryDate');
+    const pickupField = document.getElementById('pickupPersonField');
+    const pickupInput = document.getElementById('pickupPersonName');
     placeField.classList.toggle('hidden', opt==='pickup');
     dateField.classList.toggle('hidden', opt==='wait');
-    if(opt==='pickup' && !placeInput.value.trim()) placeInput.value='ลูกค้ามารับเองที่บริษัท';
-    if(opt!=='pickup' && placeInput.value==='ลูกค้ามารับเองที่บริษัท') placeInput.value='';
+    pickupField.classList.toggle('hidden', opt!=='pickup');
+    if(opt==='pickup') placeInput.value=(pickupInput.value.trim()?pickupInput.value.trim():'')+'มารับเองที่บริษัท';
+    if(opt!=='pickup' && /มารับเองที่บริษัท$/.test(placeInput.value)) placeInput.value='';
     if(opt==='wait') dateInput.value='';
   }
+  document.getElementById('pickupPersonName').addEventListener('input', toggleDeliveryFields);
   document.querySelectorAll('input[name=deliveryOption]').forEach(r => r.onchange = toggleDeliveryFields);
   toggleDeliveryFields();
 
@@ -1138,6 +1146,7 @@
       deliveryPlace: document.getElementById('deliveryPlace').value.trim(),
       deliveryDate: document.getElementById('deliveryDate').value,
       deliveryOption: document.querySelector('input[name=deliveryOption]:checked').value,
+      pickupPerson: document.getElementById('pickupPersonName').value.trim(),
       note: document.getElementById('note').value.trim(),
       printNote: document.getElementById('printNoteInput').value.trim(),
       signer: document.getElementById('signer').value.trim(),
@@ -1259,6 +1268,7 @@
     document.getElementById('contact').value='';
     document.getElementById('deliveryPlace').value='';
     document.getElementById('deliveryDate').value='';
+    document.getElementById('pickupPersonName').value='';
     toggleDeliveryFields();
     document.getElementById('note').value='';
     document.getElementById('printNoteInput').value='';
@@ -1294,6 +1304,7 @@ document.getElementById('salespersonEmail').value = '';
     document.getElementById('deliveryPlace').value = q.deliveryPlace || '';
     document.getElementById('deliveryDate').value = q.deliveryDate || '';
     document.querySelector('input[name=deliveryOption][value="'+(q.deliveryOption || 'delivery')+'"]').checked = true;
+    document.getElementById('pickupPersonName').value = q.pickupPerson || '';
     toggleDeliveryFields();
     document.getElementById('note').value = q.note || '';
     document.getElementById('printNoteInput').value = q.printNote || '';
