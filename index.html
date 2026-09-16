@@ -139,6 +139,7 @@
   table.doc td:last-child{border-right:thin solid #333;}
   table.doc td.num{text-align:right;}
   table.doc td.subrow{color:#666;font-size:11px;padding:0 10px;}
+  .itemnote{color:#666;font-size:11px;margin-top:2px;}
   table.doc tr.totstart td{border-top:thin solid #333;}
   table.doc tr.totrow td{text-align:right;color:#ff0000;font-weight:600;padding:5px 10px;}
   table.doc tr.grandrow td{border-top:thin solid #333;border-bottom:3px double #333;text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;}
@@ -1866,7 +1867,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     const comp = COMPANIES[q.company];
     const t = totalsFor(q);
     let itemRows = q.items.map((it,i) => (
-      '<tr><td style="text-align:center;">'+(i+1)+'</td><td class="spec">'+escapeHtml(it.name||'')+'</td>'+
+      '<tr><td style="text-align:center;">'+(i+1)+'</td><td class="spec">'+escapeHtml(it.name||'')+(it.note?'<div class="itemnote">'+escapeHtml(it.note)+'</div>':'')+'</td>'+
       '<td class="num">'+(it.qty||0)+'</td><td class="num">'+fmt(it.price)+'</td>'+
       '<td class="num">'+fmt((it.qty||0)*(it.price||0))+'</td></tr>'
     )).join('');
