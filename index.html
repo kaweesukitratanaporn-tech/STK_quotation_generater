@@ -1870,7 +1870,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
   // ---------- printable builders ----------
   function buildQuotationPaper(q){
     const comp = COMPANIES[q.company];
-    const t = totalsFor(q);
+    const t = q.__totalsOverride || totalsFor(q);
     let itemRows = q.items.map((it,i) => (
       '<tr class="itemrow"><td style="text-align:center;">'+(i+1+(q.__startIndex||0))+'</td><td class="spec">'+escapeHtml(it.name||'')+(it.note?'<div class="itemnote">'+escapeHtml(it.note)+'</div>':'')+'</td>'+
       '<td class="num">'+(it.qty||0)+'</td><td class="num">'+fmt(it.price)+'</td>'+
@@ -1938,10 +1938,11 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     const pages = [];
     for(let i=0;i<items.length;i+=PAGE_SIZE){ pages.push(items.slice(i, i+PAGE_SIZE)); }
     if(pages.length===0){ pages.push([]); }
+    const fullTotals = totalsFor(q);
     let html = '';
     pages.forEach(function(chunk, pageI){
       const isLast = pageI === pages.length - 1;
-      const qPage = Object.assign({}, q, { items: chunk, __suppressTotals: !isLast, __startIndex: pageI*PAGE_SIZE });
+      const qPage = Object.assign({}, q, { items: chunk, __suppressTotals: !isLast, __startIndex: pageI*PAGE_SIZE, __totalsOverride: fullTotals });
       html += buildQuotationPaper(qPage);
     });
     return html;
