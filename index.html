@@ -142,9 +142,6 @@
   table.doc tbody tr:not(.itemrow) td:last-child{border-right:thin solid #333;}
   .itemnote{color:#666;font-size:11px;margin-top:2px;}
   .doc-wrap{position:relative;}
-  .gline{position:absolute;background:#333;}
-  .gline.gh{left:0;right:0;height:1px;}
-  .gline.gv{width:1px;top:0;}
   table.doc tr.totstart td{border-top:thin solid #333;}
   table.doc tr.totrow td{text-align:right;color:#ff0000;font-weight:600;padding:5px 10px;}
   table.doc tr.grandrow td{border-top:thin solid #333;border-bottom:3px double #333;text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;}
@@ -1898,12 +1895,14 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     totalsRows += '<tr class="grandrow"><td colspan="4">Sub Total</td><td>'+fmt(t.grand)+'</td></tr>';
     const GH1=28, GH2=16, GIH=44;
     const gridTotalH = GH1+GH2+10*GIH;
-    const gcols=[0,8,48,62,79,100];
+    const VBW = 672.76;
+    const gcols=[0,8,48,62,79,100].map(function(p){ return (p/100*VBW).toFixed(2); });
     const grows=[0,GH1,GH1+GH2];
     for(let k=1;k<=10;k++){ grows.push(GH1+GH2+k*GIH); }
-    let gridHtml='';
-    gcols.forEach(function(x){ gridHtml += '<div class="gline gv" style="left:'+x+'%;height:'+gridTotalH+'px;"></div>'; });
-    grows.forEach(function(y){ gridHtml += '<div class="gline gh" style="top:'+y+'px;"></div>'; });
+    let gridHtml = '<svg class="gsvg" viewBox="0 0 '+VBW+' '+gridTotalH+'" preserveAspectRatio="none" style="position:absolute;left:0;top:0;width:100%;height:'+gridTotalH+'px;">';
+    gcols.forEach(function(x){ gridHtml += '<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+gridTotalH+'" stroke="#333" stroke-width="1"/>'; });
+    grows.forEach(function(y){ gridHtml += '<line x1="0" y1="'+y+'" x2="'+VBW+'" y2="'+y+'" stroke="#333" stroke-width="1"/>'; });
+    gridHtml += '</svg>';
     if(q.__suppressTotals){ totalsRows = ''; }
     const pageBreakStyle = q.__suppressTotals ? 'page-break-after:always;break-after:page;' : '';
     return (
