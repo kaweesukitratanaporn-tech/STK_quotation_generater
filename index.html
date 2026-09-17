@@ -138,16 +138,14 @@
   table.doc td.num{text-align:right;}
   table.doc td.subrow{color:#666;font-size:11px;padding:0 10px;height:16px;box-sizing:border-box;}
   table.doc tr.itemrow td{height:44px;overflow:hidden;}
-  table.doc tbody tr:not(.itemrow) td{border-left:thin solid #333;}
-  table.doc tbody tr:not(.itemrow) td:last-child{border-right:thin solid #333;}
-  .itemnote{color:#666;font-size:11px;margin-top:2px;}
+    .itemnote{color:#666;font-size:11px;margin-top:2px;}
   .doc-wrap{position:relative;}
-  table.doc tr.totstart td{border-top:thin solid #333;}
-  table.doc tr.totrow td{text-align:right;color:#ff0000;font-weight:600;padding:5px 10px;}
-  table.doc tr.grandrow td{border-top:thin solid #333;border-bottom:3px double #333;text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;}
+  table.doc tr.totrow td{text-align:right;color:#ff0000;font-weight:600;padding:5px 10px;height:28px;box-sizing:border-box;}
+  table.doc tr.grandrow td{text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;height:28px;box-sizing:border-box;}
   .below-table{margin-top:12px;font-size:15px;line-height:2;}
   .below-table .dotted{display:inline-block;min-width:220px;padding-bottom:2px;background-image:linear-gradient(to right,#333 20%,transparent 0%);background-position:bottom;background-size:5px 1px;background-repeat:repeat-x;}
-  .foot-note{border-top:1px solid #333;margin-top:14px;padding-top:8px;font-size:14px;line-height:1.6;}
+  .foot-note{margin-top:14px;padding-top:8px;font-size:14px;line-height:1.6;}
+  .hline-svg{display:block;width:100%;height:1px;}
   .foot-note .sig{margin-top:10px;min-height:1.2em;background-image:linear-gradient(to right,#333 20%,transparent 0%);background-position:bottom;background-size:5px 1px;background-repeat:repeat-x;}
   .foot-note .signer{margin-top:6px;font-weight:700;}
   /* order sheet */
@@ -1903,6 +1901,20 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     gcols.forEach(function(x){ gridHtml += '<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+gridTotalH+'" stroke="#333" stroke-width="1"/>'; });
     grows.forEach(function(y){ gridHtml += '<line x1="0" y1="'+y+'" x2="'+VBW+'" y2="'+y+'" stroke="#333" stroke-width="1"/>'; });
     gridHtml += '</svg>';
+    const TOT_ROW_H = 28;
+    const totRowCount = (totalsRows.match(/<tr/g)||[]).length;
+    const totalsH = totRowCount*TOT_ROW_H;
+    if(totalsH>0){
+      let totSvg = '<svg class="gsvg" viewBox="0 0 '+VBW+' '+totalsH+'" preserveAspectRatio="none" style="position:absolute;left:0;top:'+gridTotalH+'px;width:100%;height:'+totalsH+'px;">';
+      totSvg += '<line x1="0" y1="0" x2="0" y2="'+totalsH+'" stroke="#333" stroke-width="1"/>';
+      totSvg += '<line x1="'+VBW+'" y1="0" x2="'+VBW+'" y2="'+totalsH+'" stroke="#333" stroke-width="1"/>';
+      totSvg += '<line x1="0" y1="0" x2="'+VBW+'" y2="0" stroke="#333" stroke-width="1"/>';
+      totSvg += '<line x1="0" y1="'+(totalsH-3)+'" x2="'+VBW+'" y2="'+(totalsH-3)+'" stroke="#333" stroke-width="1"/>';
+      totSvg += '<line x1="0" y1="'+totalsH+'" x2="'+VBW+'" y2="'+totalsH+'" stroke="#333" stroke-width="1"/>';
+      totSvg += '</svg>';
+      gridHtml += totSvg;
+    }
+    
     if(q.__suppressTotals){ totalsRows = ''; }
     const pageBreakStyle = q.__suppressTotals ? 'page-break-after:always;break-after:page;' : '';
     return (
@@ -1918,7 +1930,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
       '<div class="doc-wrap">'+gridHtml+'<table class="doc"><thead><tr><th style="width:8%;">ITEM</th><th style="width:40%;">SPEC</th><th style="width:14%;">Quantity</th><th style="width:17%;">Price/Unit</th><th style="width:21%;">Amount</th></tr>'+
       '<tr><td></td><td></td><td class="subrow" style="text-align:center;">unit</td><td class="subrow" style="text-align:center;">B/unit</td><td></td></tr></thead>'+
       '<tbody>'+itemRows+totalsRows+'</tbody></table></div>'+
-      '<div class="below-table" style="'+(q.__suppressTotals?"display:none":"")+'">'+
+      '<div class="below-table" style="'+(q.__suppressTotals?"display:none":"")+'">'+'<svg class="hline-svg" viewBox="0 0 '+VBW+' 1" preserveAspectRatio="none"><line x1="0" y1="0.5" x2="'+VBW+'" y2="0.5" stroke="#333" stroke-width="1"/></svg>'+
       'ส่งของ : <span class="dotted">'+escapeHtml(q.deliveryPlace||'')+(q.deliveryDate? ' ('+fmtDate(q.deliveryDate)+')':'')+'</span><br>'+
       'เครดิต : <span class="dotted">'+creditLine+'</span><br>'+
       'หมายเหตุ : <span class="dotted">'+escapeHtml(q.note||'')+'</span>'+
