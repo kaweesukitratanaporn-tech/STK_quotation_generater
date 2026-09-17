@@ -132,14 +132,19 @@
   .infoline{display:flex;justify-content:space-between;font-size:15px;margin-bottom:6px;}
   .infoline b{margin-right:4px;}
   table.doc{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:10px;font-size:14px;}
-  table.doc td.spec{overflow-wrap:break-word;word-break:break-word;line-height:1.5;}
-  table.doc th{padding:6px 10px;text-align:center;font-size:13px;background:#f1f1f1;border-top:thin solid #333;border-bottom:thin solid #333;border-left:thin solid #333;}
-  table.doc th:last-child{border-right:thin solid #333;}
-  table.doc td{padding:5px 10px;border-left:thin solid #333;}
-  table.doc td:last-child{border-right:thin solid #333;}
+  table.doc td.spec{overflow-wrap:break-word;word-break:break-word;line-height:1.3;}
+  table.doc th{padding:6px 10px;text-align:center;font-size:13px;background:#f1f1f1;height:28px;box-sizing:border-box;}
+  table.doc td{padding:5px 10px;box-sizing:border-box;}
   table.doc td.num{text-align:right;}
-  table.doc td.subrow{color:#666;font-size:11px;padding:0 10px;}
+  table.doc td.subrow{color:#666;font-size:11px;padding:0 10px;height:16px;box-sizing:border-box;}
+  table.doc tr.itemrow td{height:44px;overflow:hidden;}
+  table.doc tbody tr:not(.itemrow) td{border-left:thin solid #333;}
+  table.doc tbody tr:not(.itemrow) td:last-child{border-right:thin solid #333;}
   .itemnote{color:#666;font-size:11px;margin-top:2px;}
+  .doc-wrap{position:relative;}
+  .gline{position:absolute;background:#333;}
+  .gline.gh{left:0;right:0;height:1px;}
+  .gline.gv{width:1px;top:0;}
   table.doc tr.totstart td{border-top:thin solid #333;}
   table.doc tr.totrow td{text-align:right;color:#ff0000;font-weight:600;padding:5px 10px;}
   table.doc tr.grandrow td{border-top:thin solid #333;border-bottom:3px double #333;text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;}
@@ -1867,14 +1872,14 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     const comp = COMPANIES[q.company];
     const t = totalsFor(q);
     let itemRows = q.items.map((it,i) => (
-      '<tr><td style="text-align:center;">'+(i+1)+'</td><td class="spec">'+escapeHtml(it.name||'')+(it.note?'<div class="itemnote">'+escapeHtml(it.note)+'</div>':'')+'</td>'+
+      '<tr class="itemrow"><td style="text-align:center;">'+(i+1+(q.__startIndex||0))+'</td><td class="spec">'+escapeHtml(it.name||'')+(it.note?'<div class="itemnote">'+escapeHtml(it.note)+'</div>':'')+'</td>'+
       '<td class="num">'+(it.qty||0)+'</td><td class="num">'+fmt(it.price)+'</td>'+
       '<td class="num">'+fmt((it.qty||0)*(it.price||0))+'</td></tr>'
     )).join('');
     // pad empty rows so the table fills out like the sample
-    const padCount = Math.max(6 - q.items.length, 1);
+    const padCount = Math.max(10 - q.items.length, 0);
     for(let i=0;i<padCount;i++){
-      itemRows += '<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
+      itemRows += '<tr class="itemrow"><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
     }
     const cashDiscPct = q.creditMode==='cash' ? (parseFloat(q.cashDiscount)||0) : 0;
     const creditLine = (q.creditMode==='cash' ? 'เงินสด' : (q.creditDays||'-') + ' วัน') + (cashDiscPct>0 ? ' (ลด '+cashDiscPct+'%)' : '');
@@ -1891,8 +1896,18 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     totalsRows += totRow('Total', fmt(t.afterDiscount));
     if(t.vatAmt){ totalsRows += totRow(t.vatLabel, fmt(t.vatAmt)); }
     totalsRows += '<tr class="grandrow"><td colspan="4">Sub Total</td><td>'+fmt(t.grand)+'</td></tr>';
+    const GH1=28, GH2=16, GIH=44;
+    const gridTotalH = GH1+GH2+10*GIH;
+    const gcols=[0,8,48,62,79,100];
+    const grows=[0,GH1,GH1+GH2];
+    for(let k=1;k<=10;k++){ grows.push(GH1+GH2+k*GIH); }
+    let gridHtml='';
+    gcols.forEach(function(x){ gridHtml += '<div class="gline gv" style="left:'+x+'%;height:'+gridTotalH+'px;"></div>'; });
+    grows.forEach(function(y){ gridHtml += '<div class="gline gh" style="top:'+y+'px;"></div>'; });
+    if(q.__suppressTotals){ totalsRows = ''; }
+    const pageBreakStyle = q.__suppressTotals ? 'page-break-after:always;break-after:page;' : '';
     return (
-      '<div class="paper">'+
+      '<div class="paper" style="'+pageBreakStyle+'">'+
       '<div class="headline">'+
         '<img class="logo-badge" src="'+LOGO_DATA_URI+'" alt="logo">'+
         '<div><div class="cname">'+comp.name+'</div>'+
@@ -1901,20 +1916,35 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
       '<div class="qtitle">QUOTATION</div>'+
       '<div class="infoline"><span><b>TO</b> : '+escapeHtml(q.customerName||'')+'</span></div>'+
       '<div class="infoline"><span><b>ATTN</b> : '+escapeHtml(q.contact||'')+'</span><span><b>Date</b> : '+fmtDate(q.issueDate)+'</span></div>'+
-      '<table class="doc"><thead><tr><th style="width:8%;">ITEM</th><th style="width:40%;">SPEC</th><th style="width:14%;">Quantity</th><th style="width:17%;">Price/Unit</th><th style="width:21%;">Amount</th></tr>'+
+      '<div class="doc-wrap">'+gridHtml+'<table class="doc"><thead><tr><th style="width:8%;">ITEM</th><th style="width:40%;">SPEC</th><th style="width:14%;">Quantity</th><th style="width:17%;">Price/Unit</th><th style="width:21%;">Amount</th></tr>'+
       '<tr><td></td><td></td><td class="subrow" style="text-align:center;">unit</td><td class="subrow" style="text-align:center;">B/unit</td><td></td></tr></thead>'+
-      '<tbody>'+itemRows+totalsRows+'</tbody></table>'+
-      '<div class="below-table">'+
+      '<tbody>'+itemRows+totalsRows+'</tbody></table></div>'+
+      '<div class="below-table" style="'+(q.__suppressTotals?"display:none":"")+'">'+
       'ส่งของ : <span class="dotted">'+escapeHtml(q.deliveryPlace||'')+(q.deliveryDate? ' ('+fmtDate(q.deliveryDate)+')':'')+'</span><br>'+
       'เครดิต : <span class="dotted">'+creditLine+'</span><br>'+
       'หมายเหตุ : <span class="dotted">'+escapeHtml(q.note||'')+'</span>'+
       '</div>'+
-      '<div class="foot-note">กรณีไม่มีใบสั่งซื้อ กรุณาเซ็นชื่อพร้อมประทับตรา'+
+      '<div class="foot-note" style="'+(q.__suppressTotals?"display:none":"")+'">กรณีไม่มีใบสั่งซื้อ กรุณาเซ็นชื่อพร้อมประทับตรา'+
       '<div class="sig">&nbsp;</div>'+
       (q.signer? '<div class="signer">'+escapeHtml(q.signer)+'</div>' : '')+
       '</div>'+
       '</div>'
     );
+  }
+
+  function buildQuotationPaperPaginated(q){
+    const PAGE_SIZE = 10;
+    const items = q.items || [];
+    const pages = [];
+    for(let i=0;i<items.length;i+=PAGE_SIZE){ pages.push(items.slice(i, i+PAGE_SIZE)); }
+    if(pages.length===0){ pages.push([]); }
+    let html = '';
+    pages.forEach(function(chunk, pageI){
+      const isLast = pageI === pages.length - 1;
+      const qPage = Object.assign({}, q, { items: chunk, __suppressTotals: !isLast, __startIndex: pageI*PAGE_SIZE });
+      html += buildQuotationPaper(qPage);
+    });
+    return html;
   }
 
     // ---------- Order Sheet (การ์ดกระดาษ S.T.K. ตามภาพตัวอย่าง — ใช้ตอนกด
@@ -2152,7 +2182,7 @@ window.print();
   }
   function openPreview(q){
     currentPreviewData = q;
-    paperContent.innerHTML = buildQuotationPaper(q);
+    paperContent.innerHTML = buildQuotationPaperPaginated(q);
     previewModal.classList.remove('hidden');
     requestAnimationFrame(fitPaperToScreen);
   }
@@ -2169,7 +2199,7 @@ window.print();
   function restoreTitle(){ document.title = ORIGINAL_TITLE; window.removeEventListener('afterprint', restoreTitle); }
   document.getElementById('printBtn').onclick = async () => {
     const printArea = document.getElementById('printArea');
-    printArea.innerHTML = buildQuotationPaper(currentPreviewData);
+    printArea.innerHTML = buildQuotationPaperPaginated(currentPreviewData);
     try{
       if(document.fonts){
         await Promise.all([
