@@ -133,12 +133,13 @@
   .infoline b{margin-right:4px;}
   table.doc{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:10px;font-size:14px;}
   table.doc td.spec{overflow-wrap:break-word;word-break:break-word;line-height:1.15;}
-  table.doc th{padding:6px 10px;text-align:center;font-size:13px;background:#f1f1f1;height:28px;box-sizing:border-box;}
+  table.doc th{padding:6px 10px;text-align:center;font-size:13px;background:#f1f1f1;height:30px;box-sizing:border-box;overflow:hidden;}
   table.doc td{padding:5px 10px;box-sizing:border-box;}
   table.doc td.num{text-align:right;}
   table.doc td.subrow{color:#666;font-size:11px;padding:0 10px;height:16px;box-sizing:border-box;}
-  table.doc tr.itemrow td{height:38px;overflow:hidden;padding-top:3px;padding-bottom:3px;}
+  table.doc tr.itemrow td{height:38px;overflow:hidden;padding-top:3px;padding-bottom:3px;box-sizing:border-box;}
     .itemnote{color:#666;font-size:11px;margin-top:1px;line-height:1.1;}
+    .specinner{height:32px;overflow:hidden;}
   .doc-wrap{position:relative;}
   table.doc tr.totrow td{text-align:right;color:#ff0000;font-weight:600;padding:5px 10px;height:28px;box-sizing:border-box;}
   table.doc tr.grandrow td{text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;height:28px;box-sizing:border-box;}
@@ -1867,7 +1868,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     const comp = COMPANIES[q.company];
     const t = q.__totalsOverride || totalsFor(q);
     let itemRows = q.items.map((it,i) => (
-      '<tr class="itemrow"><td style="text-align:center;">'+(i+1+(q.__startIndex||0))+'</td><td class="spec">'+escapeHtml(it.name||'')+(it.note?'<div class="itemnote">'+escapeHtml(it.note)+'</div>':'')+'</td>'+
+      '<tr class="itemrow"><td style="text-align:center;">'+(i+1+(q.__startIndex||0))+'</td><td class="spec"><div class="specinner">'+escapeHtml(it.name||'')+(it.note?'<div class="itemnote">'+escapeHtml(it.note)+'</div>':'')+'</div></td>'+
       '<td class="num">'+(it.qty||0)+'</td><td class="num">'+fmt(it.price)+'</td>'+
       '<td class="num">'+fmt((it.qty||0)*(it.price||0))+'</td></tr>'
     )).join('');
@@ -1891,6 +1892,29 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     totalsRows += totRow('Total', fmt(t.afterDiscount));
     if(t.vatAmt){ totalsRows += totRow(t.vatLabel, fmt(t.vatAmt)); }
     totalsRows += '<tr class="grandrow"><td colspan="4">Sub Total</td><td>'+fmt(t.grand)+'</td></tr>';
+    const GH1=30, GH2=16, GIH=38;
+    const gridTotalH = GH1+GH2+10*GIH;
+    const VBW = 672.76;
+    const gcols=[0,8,48,62,79,100].map(function(p){ return (p/100*VBW).toFixed(2); });
+    const grows=[0,GH1,GH1+GH2];
+    for(let k=1;k<=10;k++){ grows.push(GH1+GH2+k*GIH); }
+    let gridHtml = '<svg class="gsvg" viewBox="0 0 '+VBW+' '+gridTotalH+'" preserveAspectRatio="none" style="position:absolute;left:0;top:0;width:100%;height:'+gridTotalH+'px;">';
+    gcols.forEach(function(x){ gridHtml += '<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+gridTotalH+'" stroke="#333" stroke-width="1"/>'; });
+    grows.forEach(function(y){ gridHtml += '<line x1="0" y1="'+y+'" x2="'+VBW+'" y2="'+y+'" stroke="#333" stroke-width="1"/>'; });
+    gridHtml += '</svg>';
+    const TOT_ROW_H = 28;
+    const totRowCount = (totalsRows.match(/<tr/g)||[]).length;
+    const totalsH = totRowCount*TOT_ROW_H;
+    if(totalsH>0){
+      let totSvg = '<svg class="gsvg" viewBox="0 0 '+VBW+' '+totalsH+'" preserveAspectRatio="none" style="position:absolute;left:0;top:'+gridTotalH+'px;width:100%;height:'+totalsH+'px;">';
+      totSvg += '<line x1="0" y1="0" x2="0" y2="'+totalsH+'" stroke="#333" stroke-width="1"/>';
+      totSvg += '<line x1="'+VBW+'" y1="0" x2="'+VBW+'" y2="'+totalsH+'" stroke="#333" stroke-width="1"/>';
+      totSvg += '<line x1="0" y1="'+(totalsH-3)+'" x2="'+VBW+'" y2="'+(totalsH-3)+'" stroke="#333" stroke-width="1"/>';
+      totSvg += '<line x1="0" y1="'+totalsH+'" x2="'+VBW+'" y2="'+totalsH+'" stroke="#333" stroke-width="1"/>';
+      totSvg += '</svg>';
+      gridHtml += totSvg;
+    }
+    
     if(q.__suppressTotals){ totalsRows = ''; }
     const pageBreakStyle = q.__suppressTotals ? 'page-break-after:always;break-after:page;' : '';
     return (
@@ -1903,10 +1927,10 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
       '<div class="qtitle">QUOTATION</div>'+
       '<div class="infoline"><span><b>TO</b> : '+escapeHtml(q.customerName||'')+'</span></div>'+
       '<div class="infoline"><span><b>ATTN</b> : '+escapeHtml(q.contact||'')+'</span><span><b>Date</b> : '+fmtDate(q.issueDate)+'</span></div>'+
-      '<div class="doc-wrap">'+'<table class="doc"><thead><tr><th style="width:8%;">ITEM</th><th style="width:40%;">SPEC</th><th style="width:14%;">Quantity</th><th style="width:17%;">Price/Unit</th><th style="width:21%;">Amount</th></tr>'+
+      '<div class="doc-wrap">'+gridHtml+'<table class="doc"><thead><tr><th style="width:8%;">ITEM</th><th style="width:40%;">SPEC</th><th style="width:14%;">Quantity</th><th style="width:17%;">Price/Unit</th><th style="width:21%;">Amount</th></tr>'+
       '<tr><td></td><td></td><td class="subrow" style="text-align:center;">unit</td><td class="subrow" style="text-align:center;">B/unit</td><td></td></tr></thead>'+
       '<tbody>'+itemRows+totalsRows+'</tbody></table></div>'+
-      '<div class="below-table" style="'+(q.__suppressTotals?"display:none":"")+'">'+'<svg class="hline-svg" viewBox="0 0 100 1" preserveAspectRatio="none"><line x1="0" y1="0.5" x2="100" y2="0.5" stroke="#333" stroke-width="1"/></svg>'+
+      '<div class="below-table" style="'+(q.__suppressTotals?"display:none":"")+'">'+'<svg class="hline-svg" viewBox="0 0 '+VBW+' 1" preserveAspectRatio="none"><line x1="0" y1="0.5" x2="'+VBW+'" y2="0.5" stroke="#333" stroke-width="1"/></svg>'+
       'ส่งของ : <span class="dotted">'+escapeHtml(q.deliveryPlace||'')+(q.deliveryDate? ' ('+fmtDate(q.deliveryDate)+')':'')+'</span><br>'+
       'เครดิต : <span class="dotted">'+creditLine+'</span><br>'+
       'หมายเหตุ : <span class="dotted">'+escapeHtml(q.note||'')+'</span>'+
@@ -1919,56 +1943,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     );
   }
 
-    function renderTableGrids(root){
-      var wraps = root.querySelectorAll('.doc-wrap');
-      wraps.forEach(function(wrap){
-        wrap.querySelectorAll('svg.gsvg').forEach(function(s){ s.remove(); });
-        var table = wrap.querySelector('table.doc');
-        if(!table) return;
-        var wrapRect = wrap.getBoundingClientRect();
-        var thead = table.querySelector('thead');
-        if(!thead || !thead.rows.length) return;
-        var headRow1 = thead.rows[0];
-        var headRow2 = thead.rows[1];
-        var itemRows = table.querySelectorAll('tr.itemrow');
-        var totRows = table.querySelectorAll('tr.totrow, tr.grandrow');
-        var cols = [];
-        for(var i=0;i<headRow1.cells.length;i++){
-          cols.push(headRow1.cells[i].getBoundingClientRect().left - wrapRect.left);
-        }
-        cols.push(headRow1.cells[headRow1.cells.length-1].getBoundingClientRect().right - wrapRect.left);
-        var rows = [];
-        rows.push(headRow1.getBoundingClientRect().top - wrapRect.top);
-        if(headRow2) rows.push(headRow2.getBoundingClientRect().top - wrapRect.top);
-        rows.push((headRow2||headRow1).getBoundingClientRect().bottom - wrapRect.top);
-        itemRows.forEach(function(tr){ rows.push(tr.getBoundingClientRect().bottom - wrapRect.top); });
-        var gridTop = rows[0];
-        var gridBottom = rows[rows.length-1];
-        var gridH = gridBottom - gridTop;
-        var W = wrapRect.width;
-        var svg = '<svg class="gsvg" style="position:absolute;left:0;top:'+gridTop+'px;width:100%;height:'+gridH+'px;" viewBox="0 0 '+W+' '+gridH+'" preserveAspectRatio="none">';
-        cols.forEach(function(x){ svg += '<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+gridH+'" stroke="#333" stroke-width="1"/>'; });
-        rows.forEach(function(y){ var ry=y-gridTop; svg += '<line x1="0" y1="'+ry+'" x2="'+W+'" y2="'+ry+'" stroke="#333" stroke-width="1"/>'; });
-        svg += '</svg>';
-        wrap.insertAdjacentHTML('beforeend', svg);
-        if(totRows.length){
-          var totTop = totRows[0].getBoundingClientRect().top - wrapRect.top;
-          var totBottom = totRows[totRows.length-1].getBoundingClientRect().bottom - wrapRect.top;
-          var totH = totBottom - totTop;
-          var tsvg = '<svg class="gsvg" style="position:absolute;left:0;top:'+totTop+'px;width:100%;height:'+totH+'px;" viewBox="0 0 '+W+' '+totH+'" preserveAspectRatio="none">';
-          tsvg += '<line x1="0" y1="0" x2="0" y2="'+totH+'" stroke="#333" stroke-width="1"/>';
-          tsvg += '<line x1="'+W+'" y1="0" x2="'+W+'" y2="'+totH+'" stroke="#333" stroke-width="1"/>';
-          tsvg += '<line x1="0" y1="0" x2="'+W+'" y2="0" stroke="#333" stroke-width="1"/>';
-          tsvg += '<line x1="0" y1="'+(totH-3)+'" x2="'+W+'" y2="'+(totH-3)+'" stroke="#333" stroke-width="1"/>';
-          tsvg += '<line x1="0" y1="'+totH+'" x2="'+W+'" y2="'+totH+'" stroke="#333" stroke-width="1"/>';
-          tsvg += '</svg>';
-          wrap.insertAdjacentHTML('beforeend', tsvg);
-        }
-      });
-    }
-  
-    
-function buildQuotationPaperPaginated(q){
+  function buildQuotationPaperPaginated(q){
     const PAGE_SIZE = 10;
     const items = q.items || [];
     const pages = [];
@@ -2221,7 +2196,6 @@ window.print();
     currentPreviewData = q;
     paperContent.innerHTML = buildQuotationPaperPaginated(q);
     previewModal.classList.remove('hidden');
-    renderTableGrids(paperContent);
     requestAnimationFrame(fitPaperToScreen);
   }
   window.addEventListener('resize', () => { if(!previewModal.classList.contains('hidden')) fitPaperToScreen(); });
@@ -2255,8 +2229,6 @@ window.print();
     const custName = safeFileName(q.customerName) || 'ลูกค้า';
     document.title = 'ใบเสนอราคา_' + custName + '_' + fileDate(q.issueDate);
     window.addEventListener('afterprint', restoreTitle);
-    function __gridBeforePrint(){ renderTableGrids(printArea); window.removeEventListener('beforeprint', __gridBeforePrint); }
-    window.addEventListener('beforeprint', __gridBeforePrint);
     window.print();
   };
   previewModal.addEventListener('click', (e) => { if(e.target === previewModal) previewModal.classList.add('hidden'); });
