@@ -2220,8 +2220,8 @@ window.print();
   function openPreview(q){
     currentPreviewData = q;
     paperContent.innerHTML = buildQuotationPaperPaginated(q);
-    renderTableGrids(paperContent);
     previewModal.classList.remove('hidden');
+    renderTableGrids(paperContent);
     requestAnimationFrame(fitPaperToScreen);
   }
   window.addEventListener('resize', () => { if(!previewModal.classList.contains('hidden')) fitPaperToScreen(); });
