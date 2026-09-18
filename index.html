@@ -141,8 +141,8 @@
     .itemnote{color:#666;font-size:11px;margin-top:1px;line-height:1.1;}
     .specinner{height:32px;overflow:hidden;}
   .doc-wrap{position:relative;}
-  table.doc tr.totrow td{text-align:right;color:#ff0000;font-weight:600;padding:5px 10px;height:28px;box-sizing:border-box;}
-  table.doc tr.grandrow td{text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;height:28px;box-sizing:border-box;}
+  table.doc tr.totrow td{text-align:right;color:#ff0000;font-weight:600;padding:5px 10px;height:29px;box-sizing:border-box;overflow:hidden;}
+  table.doc tr.grandrow td{text-align:right;color:#ff0000;font-weight:700;padding:5px 10px;height:29px;box-sizing:border-box;overflow:hidden;}
   .below-table{margin-top:12px;font-size:15px;line-height:2;}
   .below-table .dotted{display:inline-block;min-width:220px;padding-bottom:2px;background-image:linear-gradient(to right,#333 20%,transparent 0%);background-position:bottom;background-size:5px 1px;background-repeat:repeat-x;}
   .foot-note{margin-top:14px;padding-top:8px;font-size:14px;line-height:1.6;}
@@ -1892,30 +1892,23 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     totalsRows += totRow('Total', fmt(t.afterDiscount));
     if(t.vatAmt){ totalsRows += totRow(t.vatLabel, fmt(t.vatAmt)); }
     totalsRows += '<tr class="grandrow"><td colspan="4">Sub Total</td><td>'+fmt(t.grand)+'</td></tr>';
+    if(q.__suppressTotals){ totalsRows = ''; }
     const GH1=30, GH2=16, GIH=38;
     const gridTotalH = GH1+GH2+10*GIH;
     const VBW = 672.76;
     const gcols=[0,8,48,62,79,100].map(function(p){ return (p/100*VBW).toFixed(2); });
-    const grows=[0,GH1,GH1+GH2];
-    for(let k=1;k<=10;k++){ grows.push(GH1+GH2+k*GIH); }
-    let gridHtml = '<svg class="gsvg" viewBox="0 0 '+VBW+' '+gridTotalH+'" preserveAspectRatio="none" style="position:absolute;left:0;top:0;width:100%;height:'+gridTotalH+'px;">';
-    gcols.forEach(function(x){ gridHtml += '<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+gridTotalH+'" stroke="#333" stroke-width="1"/>'; });
-    grows.forEach(function(y){ gridHtml += '<line x1="0" y1="'+y+'" x2="'+VBW+'" y2="'+y+'" stroke="#333" stroke-width="1"/>'; });
-    gridHtml += '</svg>';
-    const TOT_ROW_H = 28;
+    const TOT_ROW_H = 29;
     const totRowCount = (totalsRows.match(/<tr/g)||[]).length;
     const totalsH = totRowCount*TOT_ROW_H;
+    const fullH = gridTotalH + totalsH;
+    let gridHtml = '<svg class="gsvg" viewBox="0 0 '+VBW+' '+fullH+'" preserveAspectRatio="none" style="position:absolute;left:0;top:0;width:100%;height:'+fullH+'px;">';
+    gcols.forEach(function(x){ gridHtml += '<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+fullH+'" stroke="#333" stroke-width="1"/>'; });
+    [0,GH1,GH1+GH2,gridTotalH].forEach(function(y){ gridHtml += '<line x1="0" y1="'+y+'" x2="'+VBW+'" y2="'+y+'" stroke="#333" stroke-width="1"/>'; });
     if(totalsH>0){
-      let totSvg = '<svg class="gsvg" viewBox="0 0 '+VBW+' '+totalsH+'" preserveAspectRatio="none" style="position:absolute;left:0;top:'+gridTotalH+'px;width:100%;height:'+totalsH+'px;">';
-      totSvg += '<line x1="0" y1="0" x2="0" y2="'+totalsH+'" stroke="#333" stroke-width="1"/>';
-      totSvg += '<line x1="'+VBW+'" y1="0" x2="'+VBW+'" y2="'+totalsH+'" stroke="#333" stroke-width="1"/>';
-      totSvg += '<line x1="0" y1="'+(totalsH-3)+'" x2="'+VBW+'" y2="'+(totalsH-3)+'" stroke="#333" stroke-width="1"/>';
-      totSvg += '<line x1="0" y1="'+totalsH+'" x2="'+VBW+'" y2="'+totalsH+'" stroke="#333" stroke-width="1"/>';
-      totSvg += '</svg>';
-      gridHtml += totSvg;
+      gridHtml += '<line x1="0" y1="'+(fullH-3)+'" x2="'+VBW+'" y2="'+(fullH-3)+'" stroke="#333" stroke-width="1"/>';
+      gridHtml += '<line x1="0" y1="'+fullH+'" x2="'+VBW+'" y2="'+fullH+'" stroke="#333" stroke-width="1"/>';
     }
-    
-    if(q.__suppressTotals){ totalsRows = ''; }
+    gridHtml += '</svg>';
     const pageBreakStyle = q.__suppressTotals ? 'page-break-after:always;break-after:page;' : '';
     return (
       '<div class="paper" style="'+pageBreakStyle+'">'+
