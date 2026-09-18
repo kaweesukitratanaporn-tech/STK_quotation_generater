@@ -1903,10 +1903,11 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     const fullH = gridTotalH + totalsH;
     let gridHtml = '<svg class="gsvg" viewBox="0 0 '+VBW+' '+fullH+'" preserveAspectRatio="none" style="position:absolute;left:0;top:0;width:100%;height:'+fullH+'px;">';
     gcols.forEach(function(x){ gridHtml += '<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+fullH+'" stroke="#333" stroke-width="1"/>'; });
-    [0,GH1,GH1+GH2,gridTotalH].forEach(function(y){ gridHtml += '<line x1="0" y1="'+y+'" x2="'+VBW+'" y2="'+y+'" stroke="#333" stroke-width="1"/>'; });
+    [0,GH1].forEach(function(y){ gridHtml += '<line x1="0" y1="'+y+'" x2="'+VBW+'" y2="'+y+'" stroke="#333" stroke-width="1"/>'; });
     if(totalsH>0){
-      gridHtml += '<line x1="0" y1="'+(fullH-3)+'" x2="'+VBW+'" y2="'+(fullH-3)+'" stroke="#333" stroke-width="1"/>';
-      gridHtml += '<line x1="0" y1="'+fullH+'" x2="'+VBW+'" y2="'+fullH+'" stroke="#333" stroke-width="1"/>';
+      gridHtml += '<line x1="0" y1="'+fullH+'" x2="'+gcols[4]+'" y2="'+fullH+'" stroke="#333" stroke-width="1"/>';
+      gridHtml += '<line x1="'+gcols[4]+'" y1="'+(fullH-3)+'" x2="'+VBW+'" y2="'+(fullH-3)+'" stroke="#333" stroke-width="1"/>';
+      gridHtml += '<line x1="'+gcols[4]+'" y1="'+fullH+'" x2="'+VBW+'" y2="'+fullH+'" stroke="#333" stroke-width="1"/>';
     }
     gridHtml += '</svg>';
     const pageBreakStyle = q.__suppressTotals ? 'page-break-after:always;break-after:page;' : '';
