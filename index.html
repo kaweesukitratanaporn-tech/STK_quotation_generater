@@ -1902,7 +1902,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
       itemRows += '<tr class="itemrow"><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
     }
     const cashDiscPct = q.creditMode==='cash' ? (parseFloat(q.cashDiscount)||0) : 0;
-    const creditLine = (q.creditMode==='cash' ? 'เงินสด' : (q.creditDays||'-') + ' วัน' + (q.creditExisting ? ' (เดิม)' : '')) + (cashDiscPct>0 ? ' (ลด '+cashDiscPct+'%)' : '');
+    const creditLine = (q.creditMode==='cash' ? 'เงินสด' : (q.creditExisting ? 'เดิม' : (q.creditDays||'-') + ' วัน')) + (cashDiscPct>0 ? ' (ลด '+cashDiscPct+'%)' : '');
     let totalsRows = '';
     let firstRow = true;
     function totRow(label, val){
@@ -1996,7 +1996,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     for(let i = rows.length; i < MIN_ROWS; i++){
       rows.push('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>');
     }
-    const crLine = q.creditMode === 'cash' ? 'เงินสด' : ((q.creditDays||'-')+' วัน'+(q.creditExisting ? ' (เดิม)' : ''));
+    const crLine = q.creditMode === 'cash' ? 'เงินสด' : (q.creditExisting ? 'เดิม' : ((q.creditDays||'-')+' วัน'));
     const certBox = q.certification ? '✓' : '';
     return (
       '<div class="paper os-size">'+
@@ -2070,7 +2070,7 @@ if(cur.length || allItems.length === 0) pages.push(cur);
 const vatText = q.vatMode === "novat" ? "NO-VAT" : "VAT+7%";
 const certMark = q.certification ? "✓" : "";
 const cashDiscPct = q.creditMode === "cash" ? (parseFloat(q.cashDiscount)||0) : 0;
-const crLine = (q.creditMode === "cash" ? "เงินสด" : ((q.creditDays||"-")+" วัน"+(q.creditExisting ? " (เดิม)" : ""))) + (cashDiscPct>0 ? " (ลด "+cashDiscPct+"%)" : "");
+const crLine = (q.creditMode === "cash" ? "เงินสด" : (q.creditExisting ? "เดิม" : ((q.creditDays||"-")+" วัน"))) + (cashDiscPct>0 ? " (ลด "+cashDiscPct+"%)" : "");
 const now = new Date();
 const p2 = n => String(n).padStart(2, "0");
 const nowStr = (now.getMonth()+1)+"/"+now.getDate()+"/"+now.getFullYear()+" "+p2(now.getHours())+":"+p2(now.getMinutes());
