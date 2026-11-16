@@ -331,9 +331,14 @@
       <label><input type="radio" name="creditMode" value="cash"> เงินสด (คำนวณส่วนลดให้)</label>
     </div>
     <div class="row">
-      <div class="field" id="creditDaysField" style="max-width:200px;">
+      <div class="field" id="creditDaysField" style="max-width:320px;">
         <label>จำนวนวันเครดิต</label>
-        <input type="number" id="creditDays" value="30" min="0">
+        <div style="display:flex;align-items:center;gap:14px;">
+          <input type="number" id="creditDays" value="30" min="0" style="flex:1;min-width:0;">
+          <label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;white-space:nowrap;">
+            <input type="checkbox" id="creditExisting" style="width:auto;"> เดิม
+          </label>
+        </div>
       </div>
       <div class="field hidden" id="cashDiscountField" style="max-width:200px;">
         <label>ส่วนลดเงินสด (%)</label>
@@ -1142,6 +1147,7 @@
       vatMode: document.querySelector('input[name=vatMode]:checked').value,
       creditMode: document.querySelector('input[name=creditMode]:checked').value,
       creditDays: document.getElementById('creditDays').value,
+      creditExisting: document.getElementById('creditExisting').checked,
       cashDiscount: document.getElementById('cashDiscount').value,
       deliveryPlace: document.getElementById('deliveryPlace').value.trim(),
       deliveryDate: document.getElementById('deliveryDate').value,
@@ -1285,6 +1291,22 @@ document.getElementById('salespersonEmail').value = '';
     renderPoAttachmentPreview();
     updateSaveButtonLabel();
   }
+  function loadForNewOrder(q){
+    loadForEdit(q);
+    editingId = null;
+    items = [{name:'', qty:1, price:0}];
+    renderItems();
+    document.getElementById('printNoteInput').value = '';
+    document.getElementById('printNoteWrap').style.display = 'none';
+    document.getElementById('addPrintNoteBtn').style.display = '';
+    document.getElementById('issueDate').valueAsDate = new Date();
+    poAttachmentCurrent = null;
+    document.getElementById('poAttachmentInput').value = '';
+    document.getElementById('poNumber').value = '';
+    renderPoAttachmentPreview();
+    renderTotals();
+    updateSaveButtonLabel();
+  }
   function loadForEdit(q){
     editingId = q.id;
     document.querySelector('input[name=company][value="'+q.company+'"]').checked = true;
@@ -1298,6 +1320,7 @@ document.getElementById('salespersonEmail').value = '';
     document.querySelector('input[name=vatMode][value="'+q.vatMode+'"]').checked = true;
     document.querySelector('input[name=creditMode][value="'+q.creditMode+'"]').checked = true;
     document.getElementById('creditDays').value = q.creditDays || 30;
+    document.getElementById('creditExisting').checked = !!q.creditExisting;
     document.getElementById('cashDiscount').value = q.cashDiscount || 2;
     document.getElementById('creditDaysField').classList.toggle('hidden', q.creditMode === 'cash');
     document.getElementById('cashDiscountField').classList.toggle('hidden', q.creditMode !== 'cash');
@@ -1392,6 +1415,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     actions.appendChild(mkBtn('ดูตัวอย่าง / พิมพ์', 'secondary', () => openPreview(q)));
     actions.appendChild(mkBtn('แก้ไข', 'secondary', () => loadForEdit(q)));
     actions.appendChild(mkBtn('🖨️ พิมพ์ทับฟอร์ม', 'secondary', () => printOrderSheetPrePrinted(q)));
+    actions.appendChild(mkBtn('+ เพิ่มออเดอร์', 'secondary', () => loadForNewOrder(q)));
 
     if(q.orderStage === 'review' || q.orderStage === 'ready'){
       actions.appendChild(mkBtn('ข้อมูลจัดส่ง', '', () => openShippingModal(q)));
@@ -1878,7 +1902,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
       itemRows += '<tr class="itemrow"><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>';
     }
     const cashDiscPct = q.creditMode==='cash' ? (parseFloat(q.cashDiscount)||0) : 0;
-    const creditLine = (q.creditMode==='cash' ? 'เงินสด' : (q.creditDays||'-') + ' วัน') + (cashDiscPct>0 ? ' (ลด '+cashDiscPct+'%)' : '');
+    const creditLine = (q.creditMode==='cash' ? 'เงินสด' : (q.creditDays||'-') + ' วัน' + (q.creditExisting ? ' (เดิม)' : '')) + (cashDiscPct>0 ? ' (ลด '+cashDiscPct+'%)' : '');
     let totalsRows = '';
     let firstRow = true;
     function totRow(label, val){
@@ -1972,7 +1996,7 @@ document.getElementById('salespersonEmail').value = q.salespersonEmail || '';
     for(let i = rows.length; i < MIN_ROWS; i++){
       rows.push('<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>');
     }
-    const crLine = q.creditMode === 'cash' ? 'เงินสด' : ((q.creditDays||'-')+' วัน');
+    const crLine = q.creditMode === 'cash' ? 'เงินสด' : ((q.creditDays||'-')+' วัน'+(q.creditExisting ? ' (เดิม)' : ''));
     const certBox = q.certification ? '✓' : '';
     return (
       '<div class="paper os-size">'+
@@ -2046,7 +2070,7 @@ if(cur.length || allItems.length === 0) pages.push(cur);
 const vatText = q.vatMode === "novat" ? "NO-VAT" : "VAT+7%";
 const certMark = q.certification ? "✓" : "";
 const cashDiscPct = q.creditMode === "cash" ? (parseFloat(q.cashDiscount)||0) : 0;
-const crLine = (q.creditMode === "cash" ? "เงินสด" : ((q.creditDays||"-")+" วัน")) + (cashDiscPct>0 ? " (ลด "+cashDiscPct+"%)" : "");
+const crLine = (q.creditMode === "cash" ? "เงินสด" : ((q.creditDays||"-")+" วัน"+(q.creditExisting ? " (เดิม)" : ""))) + (cashDiscPct>0 ? " (ลด "+cashDiscPct+"%)" : "");
 const now = new Date();
 const p2 = n => String(n).padStart(2, "0");
 const nowStr = (now.getMonth()+1)+"/"+now.getDate()+"/"+now.getFullYear()+" "+p2(now.getHours())+":"+p2(now.getMinutes());
@@ -2066,7 +2090,7 @@ const desc = descOf(it);
 return (
 '<div class="f" style="left:43.2mm;top:'+t+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(desc)+'</div>'+
 '<div class="f" style="left:'+qtyColLeft+';top:'+t+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(String(qtyText))+'</div>'+
-'<div class="f" style="left:177mm;top:'+t+'mm;width:22mm;text-align:right;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'<span style="font-size:'+Math.round(FSIZE*0.55)+'pt;">'+priceUnit+'</span></div>'
+'<div class="f" style="left:160mm;top:'+t+'mm;width:39mm;text-align:right;white-space:nowrap;font-size:'+FSIZE+'pt;">'+fmt(Number(it.price)||0)+'<span style="font-size:'+Math.round(FSIZE*0.55)+'pt;">'+priceUnit+'</span></div>'
 );
 }).join("");
 const noteHtml = noteText ? ('<div class="f" style="left:43.2mm;top:'+top+'mm;width:'+DESC_W+'mm;font-size:'+FSIZE+'pt;">'+escapeHtml(noteText)+'</div>') : '';
